@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import axios from 'axios'
@@ -6,7 +7,8 @@ import Cookies from 'js-cookie'
 
 const API = 'http://localhost:3004'
 
-export default function LoginPage() {
+// Create a separate component that uses useSearchParams
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const registered = searchParams.get('registered')
@@ -131,5 +133,25 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        background: '#0f0f0f',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff'
+      }}>
+        Loading...
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
