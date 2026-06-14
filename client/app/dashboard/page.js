@@ -12,7 +12,7 @@ import Toast from '../components/Toast'
 
 const Charts = dynamic(() => import('../components/Charts'), { ssr: false })
 
-const API = 'http://localhost:3004'
+const API = 'https://techit-api.onrender.com'
 
 export default function Dashboard() {
   const router = useRouter()
