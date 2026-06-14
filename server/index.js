@@ -14,8 +14,9 @@ app.use(cors({
     'https://localhost:3001',
     'https://localhost:3002',
     'https://techit-v2.vercel.app',
+    'https://techit-eight-.vercel.app',
   ],
-  
+  credentials: false,
 }))
 app.use(express.json())
 

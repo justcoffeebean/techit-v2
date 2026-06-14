@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 
-const API = 'https://teechit-api.onrender.com'  // Replace with your actual API endpoint
+const API = 'https://techit-api.onrender.com'  // Replace with your actual API endpoint
 
 export default function RegisterPage() {
   const router = useRouter()
