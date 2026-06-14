@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
-const API = 'https://teechit-api.onrender.com'  // Replace with your actual API endpoint  
+const API = 'https://techit-api.onrender.com'  // Replace with your actual API endpoint  
 
 // Create a separate component that uses useSearchParams
 function LoginContent() {

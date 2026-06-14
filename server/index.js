@@ -8,7 +8,15 @@ const auditRoutes = require('./routes/audit')
 
 const app = express()
 
-app.use(cors({ origin: '*', credentials: false }))
+app.use(cors({ 
+  origin: [
+    'http://localhost:3000', // Local development
+    'https://localhost:3001',
+    'https://localhost:3002',
+    'https://techit-v2.vercel.app',
+  ],
+  
+}))
 app.use(express.json())
 
 app.get('/health', (req, res) => res.json({ status: 'TechIT server running' }))
