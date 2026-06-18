@@ -8,16 +8,39 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
 }
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-})
+let transporter = null
+
+function getTransporter() {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    return null
+  }
+
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    })
+  }
+
+  return transporter
+}
 
 async function sendLowStockAlert(items) {
   if (!items || items.length === 0) return
+
+  const mailer = getTransporter()
+  if (!mailer) {
+    console.warn('Email alerts skipped: EMAIL_USER or EMAIL_PASS not configured')
+    return
+  }
+
+  if (!process.env.LOW_STOCK_EMAIL) {
+    console.warn('Email alerts skipped: LOW_STOCK_EMAIL not configured')
+    return
+  }
 
   const itemList = items.map(item => `
     <tr>
@@ -51,14 +74,18 @@ async function sendLowStockAlert(items) {
     </div>
   `
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: process.env.LOW_STOCK_EMAIL,
-    subject: `⚠️ TechIT: ${items.length} item(s) need restocking`,
-    html,
-  })
-
-  console.log(`Low stock alert sent for ${items.length} items`)
+  try {
+    await mailer.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.LOW_STOCK_EMAIL,
+      subject: `⚠️ TechIT: ${items.length} item(s) need restocking`,
+      html,
+    })
+    console.log(`Low stock alert sent for ${items.length} items`)
+  } catch (err) {
+    console.error('Failed to send low stock alert:', err.message)
+    throw err
+  }
 }
 
 module.exports = { sendLowStockAlert }

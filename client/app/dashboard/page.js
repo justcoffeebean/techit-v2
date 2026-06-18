@@ -44,7 +44,12 @@ export default function Dashboard() {
       const res = await apiClient.get(`/api/items?${params}`)
       setItems(res.data)
     } catch (err) {
-      if (err.response?.status === 401) router.push('/login')
+      if (err.response?.status === 401) {
+        router.push('/login')
+      } else {
+        console.error('Failed to fetch items:', err.message)
+        addToast('Failed to load inventory items', 'error')
+      }
     }
   }, [filters])
 
@@ -52,7 +57,10 @@ export default function Dashboard() {
     try {
       const res = await apiClient.get('/api/items/metrics')
       setMetrics(res.data)
-    } catch (err) {}
+    } catch (err) {
+      console.error('Failed to fetch metrics:', err.message)
+      addToast('Failed to load dashboard metrics', 'error')
+    }
   }, [])
 
   useEffect(() => {
@@ -61,7 +69,15 @@ export default function Dashboard() {
       router.push('/login')
       return
     }
-    setUser(JSON.parse(userData))
+    try {
+      setUser(JSON.parse(userData))
+    } catch (err) {
+      console.error('Failed to parse user cookie:', err.message)
+      Cookies.remove('token')
+      Cookies.remove('user')
+      router.push('/login')
+      return
+    }
     setLoading(false)
   }, [])
 
