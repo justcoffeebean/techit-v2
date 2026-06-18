@@ -156,7 +156,11 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     await logAction(req.user.id, req.user.username, 'ADD_ITEM', data.id, data.name, { quantity, price })
 
     if (itemWithStatus.status !== 'In Stock') {
-      await sendLowStockAlert([itemWithStatus]).catch(() => {})
+      try {
+        await sendLowStockAlert([itemWithStatus])
+      } catch (emailErr) {
+        console.error('Low stock alert failed after adding item:', emailErr.message)
+      }
     }
 
     res.status(201).json(itemWithStatus)
@@ -172,13 +176,17 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     const { id } = req.params
     const { name, sku, category, quantity, price, location, supplier, low_stock_threshold } = req.body
 
-    const { data: prev } = await supabase
+    const { data: prev, error: fetchError } = await supabase
       .from('techit_items')
       .select('*')
       .eq('id', id)
       .single()
 
-    const prevStatus = prev ? computeStatus(prev.quantity, prev.low_stock_threshold) : 'In Stock'
+    if (fetchError || !prev) {
+      return res.status(404).json({ error: 'Item not found' })
+    }
+
+    const prevStatus = computeStatus(prev.quantity, prev.low_stock_threshold)
 
     const { data, error } = await supabase
       .from('techit_items')
@@ -201,12 +209,16 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     }
 
     await logAction(req.user.id, req.user.username, 'UPDATE_ITEM', data.id, data.name, {
-      before: { quantity: prev?.quantity, price: prev?.price },
+      before: { quantity: prev.quantity, price: prev.price },
       after: { quantity: data.quantity, price: data.price }
     })
 
     if (prevStatus === 'In Stock' && itemWithStatus.status !== 'In Stock') {
-      await sendLowStockAlert([itemWithStatus]).catch(() => {})
+      try {
+        await sendLowStockAlert([itemWithStatus])
+      } catch (emailErr) {
+        console.error('Low stock alert failed after updating item:', emailErr.message)
+      }
     }
 
     res.json(itemWithStatus)
@@ -221,11 +233,15 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { id } = req.params
 
-    const { data: item } = await supabase
+    const { data: item, error: fetchError } = await supabase
       .from('techit_items')
       .select('name')
       .eq('id', id)
       .single()
+
+    if (fetchError || !item) {
+      return res.status(404).json({ error: 'Item not found' })
+    }
 
     const { error } = await supabase
       .from('techit_items')
@@ -234,7 +250,7 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
     if (error) throw error
 
-    await logAction(req.user.id, req.user.username, 'DELETE_ITEM', id, item?.name, null)
+    await logAction(req.user.id, req.user.username, 'DELETE_ITEM', id, item.name, null)
 
     res.json({ ok: true })
   } catch (err) {
