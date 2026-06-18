@@ -25,7 +25,8 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     if (keyword) {
-      query = query.or(`name.ilike.%${keyword}%,sku.ilike.%${keyword}%,supplier.ilike.%${keyword}%`)
+      const sanitizedKeyword = keyword.replace(/[,()]/g, '')
+      query = query.or(`name.ilike.%${sanitizedKeyword}%,sku.ilike.%${sanitizedKeyword}%,supplier.ilike.%${sanitizedKeyword}%`)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })
@@ -44,7 +45,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
     res.json(items)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Fetch items error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -83,7 +85,8 @@ router.get('/metrics', authMiddleware, async (req, res) => {
 
     res.json(metrics)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Metrics error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -111,7 +114,8 @@ router.get('/export', authMiddleware, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=techit-inventory.csv')
     res.send(csv)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Export error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -157,7 +161,8 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 
     res.status(201).json(itemWithStatus)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Add item error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -206,7 +211,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
     res.json(itemWithStatus)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Update item error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -232,7 +238,8 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
     res.json({ ok: true })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Delete item error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
