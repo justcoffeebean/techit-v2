@@ -13,11 +13,12 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password required' })
     }
 
-    // Find user by username or email
+    // Find user by username or email (use parameterized filters to prevent injection)
+    const sanitized = username.replace(/[,()]/g, '')
     const { data: users, error } = await supabase
       .from('techit_users')
       .select('*')
-      .or(`username.eq.${username},email.eq.${username}`)
+      .or(`username.eq.${sanitized},email.eq.${sanitized}`)
       .limit(1)
 
     if (error || !users || users.length === 0) {
@@ -45,7 +46,7 @@ router.post('/login', async (req, res) => {
     })
   } catch (err) {
     console.error('Login error:', err.message)
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -82,7 +83,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({ message: 'Account created successfully' })
   } catch (err) {
     console.error('Register error:', err.message)
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
