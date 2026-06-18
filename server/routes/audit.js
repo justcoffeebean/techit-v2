@@ -16,7 +16,8 @@ router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
 
     res.json(data)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Audit log error:', err.message)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 

@@ -21,8 +21,9 @@ function LoginContent() {
     setLoading(true)
     try {
       const res = await axios.post(`${API}/api/auth/login`, form)
-      Cookies.set('token', res.data.token, { expires: 7 })
-      Cookies.set('user', JSON.stringify(res.data.user), { expires: 7 })
+      const cookieOpts = { expires: 7, secure: true, sameSite: 'Strict' }
+      Cookies.set('token', res.data.token, cookieOpts)
+      Cookies.set('user', JSON.stringify(res.data.user), cookieOpts)
       router.push('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed')

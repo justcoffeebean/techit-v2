@@ -1,5 +1,13 @@
 const nodemailer = require('nodemailer')
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 let transporter = null
 
 function getTransporter() {
@@ -36,8 +44,8 @@ async function sendLowStockAlert(items) {
 
   const itemList = items.map(item => `
     <tr>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #2a2a2a;">${item.name}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #2a2a2a;">${item.sku}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #2a2a2a;">${escapeHtml(item.name)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #2a2a2a;">${escapeHtml(item.sku)}</td>
       <td style="padding: 8px 12px; border-bottom: 1px solid #2a2a2a; color: ${item.quantity === 0 ? '#f87171' : '#fb923c'};">
         ${item.quantity} units
       </td>
