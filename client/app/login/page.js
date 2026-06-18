@@ -2,12 +2,10 @@
 import { Suspense } from 'react'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import axios from 'axios'
 import Cookies from 'js-cookie'
+import { apiClient } from '../lib/api'
+import { inputStyle, labelStyle, errorAlertStyle, successAlertStyle, pageWrapperStyle, cardStyle, colors } from '../lib/styles'
 
-const API = 'https://techit-api.onrender.com'  // Replace with your actual API endpoint  
-
-// Create a separate component that uses useSearchParams
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -20,7 +18,7 @@ function LoginContent() {
     setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/api/auth/login`, form)
+      const res = await apiClient.post('/api/auth/login', form)
       const cookieOpts = { expires: 7, secure: true, sameSite: 'Strict' }
       Cookies.set('token', res.data.token, cookieOpts)
       Cookies.set('user', JSON.stringify(res.data.user), cookieOpts)
@@ -32,49 +30,27 @@ function LoginContent() {
     }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '12px 16px',
-    background: '#0f0f0f', border: '1px solid #2a2a2a',
-    borderRadius: 8, color: '#fff', fontSize: 15,
-    outline: 'none', marginTop: 6,
-  }
-
   return (
-    <div style={{
-      minHeight: '100vh', background: '#0f0f0f',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 20,
-    }}>
-      <div style={{
-        background: '#1a1a1a', border: '1px solid #2a2a2a',
-        borderRadius: 16, padding: 40, width: '100%', maxWidth: 420,
-      }}>
+    <div style={pageWrapperStyle}>
+      <div style={{ ...cardStyle, padding: 40, maxWidth: 420 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>📦</p>
           <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>TechIT</h1>
-          <p style={{ color: '#555', fontSize: 14 }}>Smart Inventory Management</p>
+          <p style={{ color: colors.subtle, fontSize: 14 }}>Smart Inventory Management</p>
         </div>
 
         {registered && (
-          <div style={{
-            padding: '12px 16px', background: '#0d2e1f',
-            border: '1px solid #1a5c3a', borderRadius: 8,
-            color: '#4ade80', fontSize: 14, marginBottom: 16,
-          }}>
+          <div style={successAlertStyle}>
             ✓ Account created! Please sign in.
           </div>
         )}
 
         {error && (
-          <div style={{
-            padding: '12px 16px', background: '#3a0d0d',
-            border: '1px solid #6e1a1a', borderRadius: 8,
-            color: '#f87171', fontSize: 14, marginBottom: 16,
-          }}>{error}</div>
+          <div style={errorAlertStyle}>{error}</div>
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <label style={labelStyle}>
             Username or Email
           </label>
           <input
@@ -87,7 +63,7 @@ function LoginContent() {
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <label style={labelStyle}>
             Password
           </label>
           <input
@@ -105,8 +81,8 @@ function LoginContent() {
           disabled={loading}
           style={{
             width: '100%', padding: '13px',
-            background: loading ? '#2a2a2a' : '#4ade80',
-            border: 'none', color: loading ? '#555' : '#000',
+            background: loading ? colors.border : colors.success,
+            border: 'none', color: loading ? colors.subtle : '#000',
             borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
             fontSize: 15, fontWeight: 700,
           }}
@@ -116,18 +92,18 @@ function LoginContent() {
 
         <div style={{
           marginTop: 24, padding: 16,
-          background: '#0f0f0f', border: '1px solid #2a2a2a',
-          borderRadius: 8, fontSize: 13, color: '#555',
+          background: colors.bg, border: `1px solid ${colors.border}`,
+          borderRadius: 8, fontSize: 13, color: colors.subtle,
         }}>
-          <strong style={{ color: '#888' }}>Demo credentials:</strong><br />
+          <strong style={{ color: colors.muted }}>Demo credentials:</strong><br />
           Username: admin · Password: admin123
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#555' }}>
-          Don't have an account?{' '}
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
+          {"Don't have an account? "}
           <span
             onClick={() => router.push('/register')}
-            style={{ color: '#4ade80', cursor: 'pointer', fontWeight: 600 }}
+            style={{ color: colors.success, cursor: 'pointer', fontWeight: 600 }}
           >
             Register here
           </span>
@@ -137,17 +113,16 @@ function LoginContent() {
   )
 }
 
-// Main page component with Suspense boundary
 export default function LoginPage() {
   return (
     <Suspense fallback={
       <div style={{
         minHeight: '100vh',
-        background: '#0f0f0f',
+        background: colors.bg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff'
+        color: colors.text,
       }}>
         Loading...
       </div>
