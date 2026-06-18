@@ -1,9 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
-
-const API = 'https://techit-api.onrender.com'  // Replace with your actual API endpoint
+import { apiClient } from '../lib/api'
+import { inputStyle, labelStyle, errorAlertStyle, pageWrapperStyle, cardStyle, colors } from '../lib/styles'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -25,7 +24,7 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      await axios.post(`${API}/api/auth/register`, {
+      await apiClient.post('/api/auth/register', {
         username: form.username,
         email: form.email,
         password: form.password,
@@ -38,42 +37,19 @@ export default function RegisterPage() {
     }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '12px 16px',
-    background: '#0f0f0f', border: '1px solid #2a2a2a',
-    borderRadius: 8, color: '#fff', fontSize: 15,
-    outline: 'none', marginTop: 6,
-  }
-
-  const labelStyle = {
-    fontSize: 12, fontWeight: 600, color: '#555',
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  }
-
   return (
-    <div style={{
-      minHeight: '100vh', background: '#0f0f0f',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 20,
-    }}>
-      <div style={{
-        background: '#1a1a1a', border: '1px solid #2a2a2a',
-        borderRadius: 16, padding: 40, width: '100%', maxWidth: 440,
-      }}>
+    <div style={pageWrapperStyle}>
+      <div style={{ ...cardStyle, padding: 40, maxWidth: 440 }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>📦</p>
           <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>Create Account</h1>
-          <p style={{ color: '#555', fontSize: 14 }}>Join TechIT Inventory Management</p>
+          <p style={{ color: colors.subtle, fontSize: 14 }}>Join TechIT Inventory Management</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div style={{
-            padding: '12px 16px', background: '#3a0d0d',
-            border: '1px solid #6e1a1a', borderRadius: 8,
-            color: '#f87171', fontSize: 14, marginBottom: 16,
-          }}>{error}</div>
+          <div style={errorAlertStyle}>{error}</div>
         )}
 
         {/* Form */}
@@ -128,8 +104,8 @@ export default function RegisterPage() {
           disabled={loading}
           style={{
             width: '100%', padding: '13px', marginTop: 24,
-            background: loading ? '#2a2a2a' : '#4ade80',
-            border: 'none', color: loading ? '#555' : '#000',
+            background: loading ? colors.border : colors.success,
+            border: 'none', color: loading ? colors.subtle : '#000',
             borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
             fontSize: 15, fontWeight: 700,
           }}
@@ -140,27 +116,27 @@ export default function RegisterPage() {
         {/* Features list */}
         <div style={{
           marginTop: 24, padding: 16,
-          background: '#0f0f0f', border: '1px solid #2a2a2a',
+          background: colors.bg, border: `1px solid ${colors.border}`,
           borderRadius: 8,
         }}>
-          <p style={{ fontSize: 12, color: '#555', marginBottom: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <p style={{ ...labelStyle, marginBottom: 10 }}>
             What you get
           </p>
           {[
-            '📊 Real-time inventory dashboard',
-            '📈 Analytics and charts',
-            '🔍 Advanced search and filtering',
-            '⬇ CSV export',
+            'Real-time inventory dashboard',
+            'Analytics and charts',
+            'Advanced search and filtering',
+            'CSV export',
           ].map(f => (
-            <p key={f} style={{ fontSize: 13, color: '#888', padding: '4px 0' }}>{f}</p>
+            <p key={f} style={{ fontSize: 13, color: colors.muted, padding: '4px 0' }}>{f}</p>
           ))}
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#555' }}>
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
           Already have an account?{' '}
           <span
             onClick={() => router.push('/login')}
-            style={{ color: '#4ade80', cursor: 'pointer', fontWeight: 600 }}
+            style={{ color: colors.success, cursor: 'pointer', fontWeight: 600 }}
           >
             Sign in
           </span>

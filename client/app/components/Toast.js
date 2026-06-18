@@ -1,5 +1,11 @@
 'use client'
-import { useEffect } from 'react'
+import { colors } from '../lib/styles'
+
+const toastStyles = {
+  success: { background: colors.successBg, border: `1px solid ${colors.successBorder}`, color: colors.success },
+  error: { background: colors.errorBg, border: `1px solid ${colors.errorBorder}`, color: colors.error },
+  info: { background: colors.card, border: `1px solid ${colors.border}`, color: colors.text },
+}
 
 export default function Toast({ toasts, removeToast }) {
   return (
@@ -14,17 +20,9 @@ export default function Toast({ toasts, removeToast }) {
           cursor: 'pointer',
           animation: 'slideIn 0.3s ease forwards',
           minWidth: 280,
-          background: toast.type === 'success' ? '#0d2e1f'
-            : toast.type === 'error' ? '#3a0d0d'
-            : '#1a1a1a',
-          border: `1px solid ${toast.type === 'success' ? '#1a5c3a'
-            : toast.type === 'error' ? '#6e1a1a'
-            : '#2a2a2a'}`,
-          color: toast.type === 'success' ? '#4ade80'
-            : toast.type === 'error' ? '#f87171'
-            : '#fff',
           fontSize: 14,
           fontWeight: 500,
+          ...(toastStyles[toast.type] || toastStyles.info),
         }}>
           {toast.type === 'success' ? '✓ ' : toast.type === 'error' ? '✕ ' : 'ℹ '}{toast.message}
         </div>
