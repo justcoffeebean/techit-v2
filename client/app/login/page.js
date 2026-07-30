@@ -90,14 +90,7 @@ function LoginContent() {
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
 
-        <div style={{
-          marginTop: 24, padding: 16,
-          background: colors.bg, border: `1px solid ${colors.border}`,
-          borderRadius: 8, fontSize: 13, color: colors.subtle,
-        }}>
-          <strong style={{ color: colors.muted }}>Demo credentials:</strong><br />
-          Username: admin · Password: admin123
-        </div>
+        
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
           {"Don't have an account? "}
