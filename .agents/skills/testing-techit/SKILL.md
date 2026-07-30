@@ -38,7 +38,7 @@ cd client && npm install
 npm run dev
 ```
 
-The client hardcodes `const API = 'https://techit-api.onrender.com'` in page files. For local testing against the local server, you'd need to temporarily change this or test with the remote API.
+The client hardcodes `const API = 'https://techit-v2.onrender.com'` in page files. For local testing against the local server, you'd need to temporarily change this or test with the remote API.
 
 ## Testing Strategies
 
