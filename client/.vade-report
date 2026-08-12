@@ -1,0 +1,74 @@
+# Vercel Speed Insights Installation Report
+
+## Summary
+Successfully installed and configured Vercel Speed Insights for the TechIT Inventory Next.js application.
+
+## Changes Made
+
+### 1. Package Installation
+- **Package**: `@vercel/speed-insights@^2.0.0`
+- **Package Manager**: npm
+- **Installation Method**: Followed official Vercel documentation from https://vercel.com/docs/speed-insights/quickstart
+
+### 2. Files Modified
+
+#### `app/layout.js`
+- Added import statement: `import { SpeedInsights } from '@vercel/speed-insights/next'`
+- Added `<SpeedInsights />` component inside the `<body>` tag
+- Followed Next.js App Router integration pattern as specified in the official documentation
+
+#### `package.json`
+- Added `@vercel/speed-insights` version ^2.0.0 to dependencies
+
+#### `package-lock.json`
+- Updated with the new package and its 413 dependencies
+- Lock file ensures consistent dependency resolution across environments
+
+## Implementation Details
+
+### Framework Detection
+- **Framework**: Next.js 16.2.9 (App Router)
+- **Integration Type**: Next.js-specific component (`@vercel/speed-insights/next`)
+- **Placement**: Added SpeedInsights component to root layout as recommended for Next.js v13.5+
+
+### Documentation Source
+Retrieved the latest installation instructions from the official Vercel documentation to ensure the most up-to-date setup process was followed.
+
+### Verification Steps Completed
+✅ Build completed successfully (no compilation errors)
+✅ Linter ran with no new errors in modified file (app/layout.js)
+✅ Dependencies installed correctly
+✅ Lock file updated properly
+
+## Next Steps for User
+
+To complete the Speed Insights setup:
+
+1. **Enable Speed Insights in Vercel Dashboard**
+   - Navigate to your project in the Vercel dashboard
+   - Go to Speed Insights section
+   - Click "Enable" to activate the feature
+   - This will create the necessary routes at `/_vercel/speed-insights/*`
+
+2. **Deploy the Application**
+   - Push these changes to your repository
+   - Vercel will automatically deploy the updates
+   - Or manually deploy using: `vercel deploy`
+
+3. **View Metrics**
+   - After deployment and user traffic, metrics will be available in the Vercel dashboard
+   - Access them under the Speed Insights section for your project
+
+## Technical Notes
+
+- The SpeedInsights component is placed at the end of the body tag for optimal performance
+- It will automatically track Core Web Vitals and other performance metrics
+- The tracking script appears as `/<unique-path>/script.js` in the page head after deployment
+- Speed Insights is available on all Vercel plans (including free tier)
+- No additional configuration is required - the component works out of the box
+
+## Compatibility
+
+- ✅ Next.js 16.2.9 (App Router)
+- ✅ React 19.2.3
+- ✅ Latest @vercel/speed-insights v2.0.0
