@@ -4,9 +4,10 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const supabase = require('../services/supabase')
 const { asyncHandler } = require('../utils/asyncHandler')
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter')
 
 // POST /api/auth/login
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
   const { username, password } = req.body
 
   if (!username || !password) {
@@ -47,7 +48,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/auth/register
-router.post('/register', asyncHandler(async (req, res) => {
+router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
   const { username, email, password } = req.body
 
   if (!username || !email || !password) {
