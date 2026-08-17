@@ -1,3 +1,23 @@
+:root {
+  --bg: #0f0f0f;
+  --text: #ffffff;
+  --card: #1a1a1a;
+  --border: #2a2a2a;
+  --subtle: #555;
+  --muted: #888;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f8fafc;
+  --text: #0f172a;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --subtle: #94a3b8;
+  --muted: #64748b;
+  color-scheme: light;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -6,8 +26,9 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0f0f0f;
-  color: #ffffff;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 @keyframes fadeIn {

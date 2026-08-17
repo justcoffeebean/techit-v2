@@ -1,5 +1,5 @@
-/** Shared color palette used across the app */
-export const colors = {
+/** Dark palette — current TechIT look. */
+export const darkColors = {
   bg: '#0f0f0f',
   card: '#1a1a1a',
   border: '#2a2a2a',
@@ -16,9 +16,38 @@ export const colors = {
   errorBg: '#3a0d0d',
   errorBorder: '#6e1a1a',
   info: '#60a5fa',
+  navBg: 'rgba(15,15,15,0.95)',
+  inputBg: '#0f0f0f',
+  tableRowAlt: '#161616',
 }
 
-/** Standard text input style for dark forms */
+/** Light palette — same shape, inverted neutrals, slightly darker green for contrast. */
+export const lightColors = {
+  bg: '#f8fafc',
+  card: '#ffffff',
+  border: '#e2e8f0',
+  text: '#0f172a',
+  muted: '#64748b',
+  subtle: '#94a3b8',
+  success: '#16a34a',
+  successBg: '#dcfce7',
+  successBorder: '#86efac',
+  warning: '#ea580c',
+  warningBg: '#ffedd5',
+  warningBorder: '#fdba74',
+  error: '#dc2626',
+  errorBg: '#fee2e2',
+  errorBorder: '#fca5a5',
+  info: '#2563eb',
+  navBg: 'rgba(248,250,252,0.95)',
+  inputBg: '#f1f5f9',
+  tableRowAlt: '#f8fafc',
+}
+
+/** Default export for legacy components — points to the dark palette. */
+export const colors = darkColors
+
+/** Standard text input style for dark forms. Works in light too (color values are theme-neutral). */
 export const inputStyle = {
   width: '100%',
   padding: '12px 16px',

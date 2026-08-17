@@ -1,10 +1,11 @@
 const supabase = require('./supabase')
 
-async function logAction(userId, username, action, itemId, itemName, changes) {
+async function logAction(userId, username, action, itemId, itemName, changes, organizationId) {
   try {
     const { error } = await supabase.from('techit_audit_log').insert({
       user_id: userId,
       username,
+      organization_id: organizationId,
       action,
       item_id: itemId || null,
       item_name: itemName || null,

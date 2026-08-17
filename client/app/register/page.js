@@ -2,10 +2,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiClient } from '../lib/api'
-import { inputStyle, labelStyle, errorAlertStyle, pageWrapperStyle, cardStyle, colors } from '../lib/styles'
+import { useTheme } from '../lib/useTheme'
+import { labelStyle, errorAlertStyle, pageWrapperStyle, cardStyle } from '../lib/styles'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { colors, isDark } = useTheme()
   const [form, setForm] = useState({ username: '', email: '', password: '', confirm_password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,27 +39,31 @@ export default function RegisterPage() {
     }
   }
 
+  const inputSx = {
+    width: '100%', padding: '12px 16px',
+    background: colors.inputBg, border: `1px solid ${colors.border}`,
+    borderRadius: 8, color: colors.text, fontSize: 15, outline: 'none',
+    marginTop: 6,
+  }
+
   return (
-    <div style={pageWrapperStyle}>
-      <div style={{ ...cardStyle, padding: 40, maxWidth: 440 }}>
-        {/* Header */}
+    <div style={{ ...pageWrapperStyle, background: colors.bg }}>
+      <div style={{ ...cardStyle, background: colors.card, border: `1px solid ${colors.border}`, padding: 40, maxWidth: 440 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>📦</p>
-          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>Create Account</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: colors.text }}>Create Account</h1>
           <p style={{ color: colors.subtle, fontSize: 14 }}>Join TechIT Inventory Management</p>
         </div>
 
-        {/* Error */}
         {error && (
           <div style={errorAlertStyle}>{error}</div>
         )}
 
-        {/* Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label style={labelStyle}>Username</label>
             <input
-              style={inputStyle}
+              style={inputSx}
               placeholder="Choose a username"
               value={form.username}
               onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
@@ -67,7 +73,7 @@ export default function RegisterPage() {
           <div>
             <label style={labelStyle}>Email Address</label>
             <input
-              style={inputStyle}
+              style={inputSx}
               type="email"
               placeholder="Enter your email"
               value={form.email}
@@ -78,7 +84,7 @@ export default function RegisterPage() {
           <div>
             <label style={labelStyle}>Password</label>
             <input
-              style={inputStyle}
+              style={inputSx}
               type="password"
               placeholder="Min 6 characters"
               value={form.password}
@@ -89,7 +95,7 @@ export default function RegisterPage() {
           <div>
             <label style={labelStyle}>Confirm Password</label>
             <input
-              style={inputStyle}
+              style={inputSx}
               type="password"
               placeholder="Repeat your password"
               value={form.confirm_password}
@@ -105,7 +111,7 @@ export default function RegisterPage() {
           style={{
             width: '100%', padding: '13px', marginTop: 24,
             background: loading ? colors.border : colors.success,
-            border: 'none', color: loading ? colors.subtle : '#000',
+            border: 'none', color: loading ? colors.subtle : (isDark ? '#000' : '#fff'),
             borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
             fontSize: 15, fontWeight: 700,
           }}
@@ -113,15 +119,12 @@ export default function RegisterPage() {
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
 
-        {/* Features list */}
         <div style={{
           marginTop: 24, padding: 16,
-          background: colors.bg, border: `1px solid ${colors.border}`,
+          background: colors.inputBg, border: `1px solid ${colors.border}`,
           borderRadius: 8,
         }}>
-          <p style={{ ...labelStyle, marginBottom: 10 }}>
-            What you get
-          </p>
+          <p style={{ ...labelStyle, marginBottom: 10 }}>What you get</p>
           {[
             'Real-time inventory dashboard',
             'Analytics and charts',

@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import dynamic from 'next/dynamic'
 import { apiClient, getToken } from '../lib/api'
-import { inputStyle, labelStyle, colors } from '../lib/styles'
+import { labelStyle } from '../lib/styles'
+import { useTheme } from '../lib/useTheme'
 import StatCards from '../components/StatCards'
 import ItemsTable from '../components/ItemsTable'
 import ItemModal from '../components/ItemModal'
@@ -13,8 +14,41 @@ import Toast from '../components/Toast'
 
 const Charts = dynamic(() => import('../components/Charts'), { ssr: false })
 
+/**
+ * Build the list of page numbers to render, with ellipses for large page counts.
+ */
+function getPageNumbers(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = []
+  const around = 1
+  pages.push(1)
+
+  if (current - around > 2) {
+    pages.push('…')
+  } else {
+    for (let i = 2; i < current - around; i++) pages.push(i)
+  }
+
+  for (let i = Math.max(2, current - around); i <= Math.min(total - 1, current + around); i++) {
+    pages.push(i)
+  }
+
+  if (current + around < total - 1) {
+    pages.push('…')
+  } else {
+    for (let i = current + around + 1; i < total; i++) pages.push(i)
+  }
+
+  pages.push(total)
+  return pages
+}
+
 export default function Dashboard() {
   const router = useRouter()
+  const { colors, isDark, toggleTheme } = useTheme()
   const [user, setUser] = useState(null)
   const [items, setItems] = useState([])
   const [metrics, setMetrics] = useState({ total_items: 0, low_stock: 0, out_of_stock: 0, total_value: 0, by_category: {}, by_status: {} })
@@ -57,7 +91,6 @@ export default function Dashboard() {
     }
   }, [filters, pagination.page, pagination.limit, router])
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setPagination(p => ({ ...p, page: 1 }))
   }, [filters.keyword, filters.category, filters.status])
@@ -167,13 +200,15 @@ export default function Dashboard() {
     )
   }
 
+  const pageNumbers = getPageNumbers(pagination.page, pagination.totalPages)
+
   return (
-    <div style={{ minHeight: '100vh', background: colors.bg }}>
+    <div style={{ minHeight: '100vh', background: colors.bg, color: colors.text }}>
       <Toast toasts={toasts} removeToast={removeToast} />
 
       {/* Navbar */}
       <nav style={{
-        height: 60, background: 'rgba(15,15,15,0.95)',
+        height: 60, background: colors.navBg,
         backdropFilter: 'blur(10px)', borderBottom: `1px solid ${colors.border}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px', position: 'sticky', top: 0, zIndex: 50,
@@ -202,11 +237,27 @@ export default function Dashboard() {
               }}>Export CSV</button>
               <button onClick={() => { setEditItem(null); setShowModal(true) }} style={{
                 padding: '7px 14px', background: colors.success,
-                border: 'none', color: '#000',
+                border: 'none', color: isDark ? '#000' : '#fff',
                 borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700,
               }}>+ Add Item</button>
             </>
           )}
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle color theme"
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{
+              padding: '7px 10px', background: colors.card,
+              border: `1px solid ${colors.border}`, color: colors.muted,
+              borderRadius: 7, cursor: 'pointer', fontSize: 14,
+              marginLeft: 4,
+            }}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
+
           <span style={{ fontSize: 12, color: colors.subtle, marginLeft: 8 }}>
             {user?.username} {user?.role === 'admin' ? '(Admin)' : ''}
           </span>
@@ -218,7 +269,6 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Main content */}
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
 
         <StatCards metrics={metrics} />
@@ -237,10 +287,10 @@ export default function Dashboard() {
               onChange={e => setFilters(p => ({ ...p, keyword: e.target.value }))}
               placeholder="Search by name, SKU, supplier..."
               style={{
-                ...inputStyle,
+                background: colors.inputBg, border: `1px solid ${colors.border}`,
+                borderRadius: 8, color: colors.text,
+                width: '100%', padding: '10px 14px', fontSize: 14, outline: 'none',
                 marginTop: 0,
-                padding: '10px 14px',
-                fontSize: 14,
               }}
             />
           </div>
@@ -251,10 +301,10 @@ export default function Dashboard() {
               value={filters.category}
               onChange={e => setFilters(p => ({ ...p, category: e.target.value }))}
               style={{
-                ...inputStyle,
+                background: colors.inputBg, border: `1px solid ${colors.border}`,
+                borderRadius: 8, color: colors.text,
+                width: '100%', padding: '10px 14px', fontSize: 14, outline: 'none',
                 marginTop: 0,
-                padding: '10px 14px',
-                fontSize: 14,
               }}
             >
               <option value="all">All Categories</option>
@@ -268,10 +318,10 @@ export default function Dashboard() {
               value={filters.status}
               onChange={e => setFilters(p => ({ ...p, status: e.target.value }))}
               style={{
-                ...inputStyle,
+                background: colors.inputBg, border: `1px solid ${colors.border}`,
+                borderRadius: 8, color: colors.text,
+                width: '100%', padding: '10px 14px', fontSize: 14, outline: 'none',
                 marginTop: 0,
-                padding: '10px 14px',
-                fontSize: 14,
               }}
             >
               <option value="all">All Status</option>
@@ -282,69 +332,73 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Items count */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <p style={{ color: colors.subtle, fontSize: 13 }}>{pagination.total} item{pagination.total !== 1 ? 's' : ''} found (Page {pagination.page} of {pagination.totalPages})</p>
         </div>
 
-        {/* Pagination controls */}
         {pagination.totalPages > 1 && (
           <div style={{
-            display: 'flex', justifyContent: 'center', gap: 8,
+            display: 'flex', justifyContent: 'center', gap: 6,
             marginBottom: 16, padding: '12px 16px',
             background: colors.card, border: `1px solid ${colors.border}`,
-            borderRadius: 8,
+            borderRadius: 8, flexWrap: 'wrap',
           }}>
             <button
               onClick={() => setPagination(p => ({ ...p, page: 1 }))}
               disabled={!pagination.hasPrevPage}
               style={{
-                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : '#111',
-                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : '#333',
+                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : colors.bg,
+                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : colors.subtle,
                 borderRadius: 6, cursor: pagination.hasPrevPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
               }}
-            >
-              First
-            </button>
+            >First</button>
             <button
               onClick={() => setPagination(p => ({ ...p, page: Math.max(1, p.page - 1) }))}
               disabled={!pagination.hasPrevPage}
               style={{
-                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : '#111',
-                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : '#333',
+                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : colors.bg,
+                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : colors.subtle,
                 borderRadius: 6, cursor: pagination.hasPrevPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
               }}
-            >
-              Previous
-            </button>
-            <span style={{
-              padding: '6px 12px', color: colors.subtle,
-              fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center',
-            }}>
-              {pagination.page} / {pagination.totalPages}
-            </span>
+            >Previous</button>
+
+            {pageNumbers.map((n, idx) =>
+              n === '…' ? (
+                <span key={`ellipsis-${idx}`} style={{ padding: '6px 10px', color: colors.subtle, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center' }}>…</span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => setPagination(p => ({ ...p, page: n }))}
+                  style={{
+                    padding: '6px 12px',
+                    background: n === pagination.page ? colors.success : colors.card,
+                    border: `1px solid ${n === pagination.page ? colors.successBorder : colors.border}`,
+                    color: n === pagination.page ? (isDark ? '#000' : '#fff') : colors.muted,
+                    borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                    minWidth: 36,
+                  }}
+                >{n}</button>
+              )
+            )}
+
             <button
               onClick={() => setPagination(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
               disabled={!pagination.hasNextPage}
               style={{
-                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : '#111',
-                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : '#333',
+                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : colors.bg,
+                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : colors.subtle,
                 borderRadius: 6, cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
               }}
-            >
-              Next
-            </button>
+            >Next</button>
             <button
               onClick={() => setPagination(p => ({ ...p, page: p.totalPages }))}
               disabled={!pagination.hasNextPage}
               style={{
-                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : '#111',
-                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : '#333',
+                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : colors.bg,
+                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : colors.subtle,
                 borderRadius: 6, cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
               }}
-            >
-              Last
-            </button>
+            >Last</button>
           </div>
         )}
 

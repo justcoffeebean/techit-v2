@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { apiClient } from '../lib/api'
-import { inputStyle, labelStyle, errorAlertStyle, successAlertStyle, pageWrapperStyle, cardStyle, colors } from '../lib/styles'
+import { useTheme } from '../lib/useTheme'
+import { labelStyle, errorAlertStyle, successAlertStyle, pageWrapperStyle, cardStyle } from '../lib/styles'
 
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const registered = searchParams.get('registered')
+  const { colors, isDark } = useTheme()
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,18 +33,16 @@ function LoginContent() {
   }
 
   return (
-    <div style={pageWrapperStyle}>
-      <div style={{ ...cardStyle, padding: 40, maxWidth: 420 }}>
+    <div style={{ ...pageWrapperStyle, background: colors.bg }}>
+      <div style={{ ...cardStyle, background: colors.card, border: `1px solid ${colors.border}`, padding: 40, maxWidth: 420 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>📦</p>
-          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>TechIT</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: colors.text }}>TechIT</h1>
           <p style={{ color: colors.subtle, fontSize: 14 }}>Smart Inventory Management</p>
         </div>
 
         {registered && (
-          <div style={successAlertStyle}>
-            ✓ Account created! Please sign in.
-          </div>
+          <div style={successAlertStyle}>✓ Account created! Please sign in.</div>
         )}
 
         {error && (
@@ -50,11 +50,14 @@ function LoginContent() {
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>
-            Username or Email
-          </label>
+          <label style={labelStyle}>Username or Email</label>
           <input
-            style={inputStyle}
+            style={{
+              width: '100%', padding: '12px 16px',
+              background: colors.inputBg, border: `1px solid ${colors.border}`,
+              borderRadius: 8, color: colors.text, fontSize: 15, outline: 'none',
+              marginTop: 6,
+            }}
             placeholder="Enter username"
             value={form.username}
             onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
@@ -63,11 +66,14 @@ function LoginContent() {
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <label style={labelStyle}>
-            Password
-          </label>
+          <label style={labelStyle}>Password</label>
           <input
-            style={inputStyle}
+            style={{
+              width: '100%', padding: '12px 16px',
+              background: colors.inputBg, border: `1px solid ${colors.border}`,
+              borderRadius: 8, color: colors.text, fontSize: 15, outline: 'none',
+              marginTop: 6,
+            }}
             type="password"
             placeholder="Enter password"
             value={form.password}
@@ -82,15 +88,13 @@ function LoginContent() {
           style={{
             width: '100%', padding: '13px',
             background: loading ? colors.border : colors.success,
-            border: 'none', color: loading ? colors.subtle : '#000',
+            border: 'none', color: loading ? colors.subtle : (isDark ? '#000' : '#fff'),
             borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
             fontSize: 15, fontWeight: 700,
           }}
         >
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
-
-        
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
           {"Don't have an account? "}
@@ -111,11 +115,11 @@ export default function LoginPage() {
     <Suspense fallback={
       <div style={{
         minHeight: '100vh',
-        background: colors.bg,
+        background: '#0f0f0f',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: colors.text,
+        color: '#fff',
       }}>
         Loading...
       </div>

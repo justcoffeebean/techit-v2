@@ -1,10 +1,10 @@
 'use client'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { colors } from '../lib/styles'
-
-const COLORS = [colors.success, colors.info, colors.warning, colors.error, '#a78bfa', '#34d399']
+import { useTheme } from '../lib/useTheme'
 
 export default function Charts({ metrics }) {
+  const { colors } = useTheme()
+
   const statusData = Object.entries(metrics.by_status || {}).map(([name, value]) => ({ name, value }))
   const categoryData = Object.entries(metrics.by_category || {}).map(([name, data]) => ({
     name, count: data.count, value: parseFloat(data.value.toFixed(2))
@@ -19,7 +19,6 @@ export default function Charts({ metrics }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, marginBottom: 24 }}>
 
-      {/* Status pie chart */}
       <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.subtle, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 20 }}>
           Stock Status
@@ -37,7 +36,6 @@ export default function Charts({ metrics }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Category bar chart */}
       <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, color: colors.subtle, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 20 }}>
           Inventory by Category

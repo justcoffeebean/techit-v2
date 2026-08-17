@@ -8,16 +8,25 @@ const { Parser } = require('json2csv')
 const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
 
-// GET /api/items — get all items with optional filters and pagination
+// Pagination bounds
+const DEFAULT_LIMIT = 20
+const MAX_LIMIT = 100
+
+// GET /api/items — list items in the caller's org
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
-  const { keyword, category, status, page = 1, limit = 20 } = req.query
+  const { keyword, category, status, page = 1, limit = DEFAULT_LIMIT } = req.query
+  const orgId = req.user.organization_id
 
   // Parse pagination parameters
-  const pageNum = parseInt(page) || 1
-  const limitNum = parseInt(limit) || 20
+  const pageNum = Math.max(1, parseInt(page) || 1)
+  const requestedLimit = parseInt(limit) || DEFAULT_LIMIT
+  const limitNum = Math.min(MAX_LIMIT, Math.max(1, requestedLimit))
   const offset = (pageNum - 1) * limitNum
 
-  let query = supabase.from('techit_items').select('*', { count: 'exact' })
+  let query = supabase
+    .from('techit_items')
+    .select('*', { count: 'exact' })
+    .eq('organization_id', orgId)
 
   if (category && category !== 'all') {
     query = query.eq('category', category)
@@ -55,9 +64,15 @@ router.get('/', authMiddleware, asyncHandler(async (req, res) => {
   })
 }))
 
-// GET /api/items/metrics — dashboard stats
+// GET /api/items/metrics — dashboard stats for the caller's org only
 router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
-  const { data, error } = await supabase.from('techit_items').select('*')
+  const orgId = req.user.organization_id
+
+  const { data, error } = await supabase
+    .from('techit_items')
+    .select('*')
+    .eq('organization_id', orgId)
+
   if (error) throw error
 
   const items = mapItemsWithStatus(data)
@@ -87,11 +102,14 @@ router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
   res.json(metrics)
 }))
 
-// GET /api/items/export — export as CSV
+// GET /api/items/export — export the caller's org as CSV
 router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
+  const orgId = req.user.organization_id
+
   const { data, error } = await supabase
     .from('techit_items')
     .select('name,sku,category,quantity,price,location,supplier,created_at')
+    .eq('organization_id', orgId)
     .order('name')
 
   if (error) throw error
@@ -111,9 +129,10 @@ router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
   res.send(csv)
 }))
 
-// POST /api/items — add item (admin only)
+// POST /api/items — add item (admin only) in the caller's org
 router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { name, sku, category, quantity, price, location, supplier, low_stock_threshold } = req.body
+  const orgId = req.user.organization_id
 
   if (!name || !sku || !category) {
     return res.status(400).json({ error: 'Name, SKU and category are required' })
@@ -122,6 +141,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
   const { data, error } = await supabase
     .from('techit_items')
     .insert({
+      organization_id: orgId,
       name, sku, category,
       quantity: quantity || 0,
       price: price || 0,
@@ -144,7 +164,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
     status: computeStatus(data.quantity, data.low_stock_threshold)
   }
 
-  await logAction(req.user.id, req.user.username, 'ADD_ITEM', data.id, data.name, { quantity, price })
+  await logAction(req.user.id, req.user.username, 'ADD_ITEM', data.id, data.name, { quantity, price }, orgId)
 
   if (itemWithStatus.status !== 'In Stock') {
     try {
@@ -157,15 +177,17 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
   res.status(201).json(itemWithStatus)
 }))
 
-// PUT /api/items/:id — update item (admin only)
+// PUT /api/items/:id — update item (admin only) within the caller's org
 router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { id } = req.params
   const { name, sku, category, quantity, price, location, supplier, low_stock_threshold } = req.body
+  const orgId = req.user.organization_id
 
   const { data: prev, error: fetchError } = await supabase
     .from('techit_items')
     .select('*')
     .eq('id', id)
+    .eq('organization_id', orgId)
     .single()
 
   if (fetchError || !prev) {
@@ -184,6 +206,7 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
+    .eq('organization_id', orgId)
     .select()
     .single()
 
@@ -197,7 +220,7 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
   await logAction(req.user.id, req.user.username, 'UPDATE_ITEM', data.id, data.name, {
     before: { quantity: prev.quantity, price: prev.price },
     after: { quantity: data.quantity, price: data.price }
-  })
+  }, orgId)
 
   if (prevStatus === 'In Stock' && itemWithStatus.status !== 'In Stock') {
     try {
@@ -210,14 +233,16 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
   res.json(itemWithStatus)
 }))
 
-// DELETE /api/items/:id — delete item (admin only)
+// DELETE /api/items/:id — delete item (admin only) within the caller's org
 router.delete('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { id } = req.params
+  const orgId = req.user.organization_id
 
   const { data: item, error: fetchError } = await supabase
     .from('techit_items')
     .select('name')
     .eq('id', id)
+    .eq('organization_id', orgId)
     .single()
 
   if (fetchError || !item) {
@@ -228,10 +253,11 @@ router.delete('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, 
     .from('techit_items')
     .delete()
     .eq('id', id)
+    .eq('organization_id', orgId)
 
   if (error) throw error
 
-  await logAction(req.user.id, req.user.username, 'DELETE_ITEM', id, item.name, null)
+  await logAction(req.user.id, req.user.username, 'DELETE_ITEM', id, item.name, null, orgId)
 
   res.json({ ok: true })
 }))

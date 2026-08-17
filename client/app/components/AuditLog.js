@@ -1,24 +1,28 @@
 'use client'
-import { modalOverlayStyle, cardStyle, colors } from '../lib/styles'
-
-const actionColors = {
-  'ADD_ITEM': { bg: colors.successBg, border: colors.successBorder, text: colors.success, label: '+ Added' },
-  'UPDATE_ITEM': { bg: '#1f2a0d', border: '#3a5c1a', text: '#a3e635', label: '✎ Updated' },
-  'DELETE_ITEM': { bg: colors.errorBg, border: colors.errorBorder, text: colors.error, label: '✕ Deleted' },
-}
+import { useTheme } from '../lib/useTheme'
 
 export default function AuditLog({ logs, onClose }) {
+  const { colors } = useTheme()
+
+  const actionColors = {
+    'ADD_ITEM':    { bg: colors.successBg, border: colors.successBorder, text: colors.success, label: '+ Added' },
+    'UPDATE_ITEM': { bg: colors.warningBg, border: colors.warningBorder, text: colors.warning, label: '✎ Updated' },
+    'DELETE_ITEM': { bg: colors.errorBg,   border: colors.errorBorder,   text: colors.error,   label: '✕ Deleted' },
+  }
+
   return (
-    <div style={modalOverlayStyle}>
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: 20,
+    }}>
       <div style={{
-        ...cardStyle,
-        maxWidth: 700,
-        maxHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
+        background: colors.card, border: `1px solid ${colors.border}`,
+        borderRadius: 16, padding: 32, width: '100%',
+        maxWidth: 700, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Audit Log</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>Audit Log</h2>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: colors.subtle,
             fontSize: 20, cursor: 'pointer',
