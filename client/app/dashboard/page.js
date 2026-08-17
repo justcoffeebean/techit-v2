@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [items, setItems] = useState([])
   const [metrics, setMetrics] = useState({ total_items: 0, low_stock: 0, out_of_stock: 0, total_value: 0, by_category: {}, by_status: {} })
   const [filters, setFilters] = useState({ keyword: '', category: 'all', status: 'all' })
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false })
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [showAudit, setShowAudit] = useState(false)
@@ -40,9 +41,12 @@ export default function Dashboard() {
       if (filters.keyword) params.set('keyword', filters.keyword)
       if (filters.category !== 'all') params.set('category', filters.category)
       if (filters.status !== 'all') params.set('status', filters.status)
+      params.set('page', pagination.page)
+      params.set('limit', pagination.limit)
 
       const res = await apiClient.get(`/api/items?${params}`)
-      setItems(res.data)
+      setItems(res.data.items)
+      setPagination(res.data.pagination)
     } catch (err) {
       if (err.response?.status === 401) {
         router.push('/login')
@@ -51,7 +55,12 @@ export default function Dashboard() {
         addToast('Failed to load inventory items', 'error')
       }
     }
-  }, [filters])
+  }, [filters, pagination.page, pagination.limit, router])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(p => ({ ...p, page: 1 }))
+  }, [filters.keyword, filters.category, filters.status])
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -86,7 +95,7 @@ export default function Dashboard() {
       fetchItems()
       fetchMetrics()
     }
-  }, [loading, filters])
+  }, [loading, fetchItems, fetchMetrics])
 
   const handleSave = async (form) => {
     try {
@@ -275,8 +284,69 @@ export default function Dashboard() {
 
         {/* Items count */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <p style={{ color: colors.subtle, fontSize: 13 }}>{items.length} item{items.length !== 1 ? 's' : ''} found</p>
+          <p style={{ color: colors.subtle, fontSize: 13 }}>{pagination.total} item{pagination.total !== 1 ? 's' : ''} found (Page {pagination.page} of {pagination.totalPages})</p>
         </div>
+
+        {/* Pagination controls */}
+        {pagination.totalPages > 1 && (
+          <div style={{
+            display: 'flex', justifyContent: 'center', gap: 8,
+            marginBottom: 16, padding: '12px 16px',
+            background: colors.card, border: `1px solid ${colors.border}`,
+            borderRadius: 8,
+          }}>
+            <button
+              onClick={() => setPagination(p => ({ ...p, page: 1 }))}
+              disabled={!pagination.hasPrevPage}
+              style={{
+                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : '#111',
+                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : '#333',
+                borderRadius: 6, cursor: pagination.hasPrevPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              First
+            </button>
+            <button
+              onClick={() => setPagination(p => ({ ...p, page: Math.max(1, p.page - 1) }))}
+              disabled={!pagination.hasPrevPage}
+              style={{
+                padding: '6px 12px', background: pagination.hasPrevPage ? colors.card : '#111',
+                border: `1px solid ${colors.border}`, color: pagination.hasPrevPage ? colors.muted : '#333',
+                borderRadius: 6, cursor: pagination.hasPrevPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              Previous
+            </button>
+            <span style={{
+              padding: '6px 12px', color: colors.subtle,
+              fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center',
+            }}>
+              {pagination.page} / {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setPagination(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
+              disabled={!pagination.hasNextPage}
+              style={{
+                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : '#111',
+                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : '#333',
+                borderRadius: 6, cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setPagination(p => ({ ...p, page: p.totalPages }))}
+              disabled={!pagination.hasNextPage}
+              style={{
+                padding: '6px 12px', background: pagination.hasNextPage ? colors.card : '#111',
+                border: `1px solid ${colors.border}`, color: pagination.hasNextPage ? colors.muted : '#333',
+                borderRadius: 6, cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              Last
+            </button>
+          </div>
+        )}
 
         <ItemsTable
           items={items}

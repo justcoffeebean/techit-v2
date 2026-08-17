@@ -8,11 +8,16 @@ const { Parser } = require('json2csv')
 const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
 
-// GET /api/items — get all items with optional filters
+// GET /api/items — get all items with optional filters and pagination
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
-  const { keyword, category, status } = req.query
+  const { keyword, category, status, page = 1, limit = 20 } = req.query
 
-  let query = supabase.from('techit_items').select('*')
+  // Parse pagination parameters
+  const pageNum = parseInt(page) || 1
+  const limitNum = parseInt(limit) || 20
+  const offset = (pageNum - 1) * limitNum
+
+  let query = supabase.from('techit_items').select('*', { count: 'exact' })
 
   if (category && category !== 'all') {
     query = query.eq('category', category)
@@ -23,16 +28,31 @@ router.get('/', authMiddleware, asyncHandler(async (req, res) => {
     query = query.or(`name.ilike.%${sanitizedKeyword}%,sku.ilike.%${sanitizedKeyword}%,supplier.ilike.%${sanitizedKeyword}%`)
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false })
+  const { data, error, count } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limitNum - 1)
+
   if (error) throw error
 
-  let items = mapItemsWithStatus(data)
+  let items = mapItemsWithStatus(data || [])
 
   if (status && status !== 'all') {
     items = items.filter(i => i.status === status)
   }
 
-  res.json(items)
+  const totalPages = Math.ceil((count || 0) / limitNum)
+
+  res.json({
+    items,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total: count || 0,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1
+    }
+  })
 }))
 
 // GET /api/items/metrics — dashboard stats
