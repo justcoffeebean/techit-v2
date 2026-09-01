@@ -1,9 +1,10 @@
 import './globals.css'
+import { ThemeProvider } from './lib/useTheme'
 
 /**
- * Inline script that runs before React hydrates. It reads localStorage
- * (or prefers-color-scheme) and stamps <html data-theme="…"> so the body
- * uses the right background on first paint — no white flash.
+ * Runs before React hydrates: stamps <html data-theme> from localStorage or
+ * the OS preference so the first paint already uses the right palette and
+ * there is no flash of the wrong theme.
  */
 const themeBootstrap = `
 (function() {
@@ -26,11 +27,13 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }
