@@ -7,6 +7,7 @@ const { sendLowStockAlert } = require('../services/email')
 const { Parser } = require('json2csv')
 const { computeStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
+const { expensiveLimiter } = require('../middleware/rateLimiter')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { summarise, saleRevenue, saleProfit, withDerived } = require('../utils/salesMath')
 const { recordMovement } = require('../services/movements')
@@ -14,6 +15,10 @@ const { triggerReorderIfLow } = require('../services/reorder')
 
 const DEFAULT_RANGE_DAYS = 30
 const TOP_PRODUCT_COUNT = 10
+
+// Ceiling on rows pulled into an in-memory aggregation, so a wide date range
+// on a busy organization cannot exhaust memory.
+const METRICS_ROW_CAP = 10000
 
 /**
  * Resolve the ?from / ?to query into ISO day boundaries, defaulting to the
@@ -47,6 +52,7 @@ async function fetchSalesInRange(orgId, start, end) {
     .gte('sold_at', start)
     .lte('sold_at', end)
     .order('sold_at', { ascending: true })
+    .limit(METRICS_ROW_CAP)
 
   if (error) throw error
   return data || []
@@ -109,6 +115,7 @@ router.get('/metrics', authMiddleware, adminMiddleware, asyncHandler(async (req,
     .from('techit_items')
     .select('quantity,cost_price')
     .eq('organization_id', orgId)
+    .limit(METRICS_ROW_CAP)
 
   if (itemError) throw itemError
 
@@ -193,7 +200,7 @@ router.get('/metrics', authMiddleware, adminMiddleware, asyncHandler(async (req,
 }))
 
 // GET /api/sales/export — CSV of sales in range
-router.get('/export', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+router.get('/export', authMiddleware, adminMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
   const { start, end } = resolveRange(req.query)
 

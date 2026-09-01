@@ -30,5 +30,18 @@
   "devDependencies": {
     "jest": "^30.4.2",
     "nodemon": "^3.1.14"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/helpers/"
+    ],
+    "collectCoverageFrom": [
+      "routes/**/*.js",
+      "services/**/*.js",
+      "middleware/**/*.js",
+      "utils/**/*.js"
+    ]
   }
 }

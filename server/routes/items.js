@@ -7,9 +7,14 @@ const { sendLowStockAlert } = require('../services/email')
 const { Parser } = require('json2csv')
 const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
+const { expensiveLimiter } = require('../middleware/rateLimiter')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { recordMovement, recordQuantityChange } = require('../services/movements')
 const { triggerReorderIfLow } = require('../services/reorder')
+
+// Ceiling on rows pulled into an in-memory aggregation. Well above any
+// realistic catalogue, low enough to bound memory if one is not.
+const METRICS_ROW_CAP = 10000
 
 // GET /api/items — list items in the caller's org
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
@@ -83,10 +88,13 @@ router.get('/sku/:sku', authMiddleware, asyncHandler(async (req, res) => {
 router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
 
+  // Only the columns the aggregation reads, and a ceiling so one very large
+  // organization cannot pull an unbounded result set into memory.
   const { data, error } = await supabase
     .from('techit_items')
-    .select('*')
+    .select('quantity,price,cost_price,category,low_stock_threshold')
     .eq('organization_id', orgId)
+    .limit(METRICS_ROW_CAP)
 
   if (error) throw error
 
@@ -119,7 +127,7 @@ router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
 }))
 
 // GET /api/items/export — export the caller's org as CSV
-router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/export', authMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
 
   const { data, error } = await supabase

@@ -2,6 +2,8 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const cookieParser = require('cookie-parser')
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler')
+const { apiLimiter } = require('./middleware/rateLimiter')
 require('dotenv').config()
 
 const authRoutes = require('./routes/auth')
@@ -14,6 +16,10 @@ const movementRoutes = require('./routes/movements')
 const purchaseOrderRoutes = require('./routes/purchaseOrders')
 
 const app = express()
+
+// Render terminates TLS at its proxy: trust one hop so req.ip is the real
+// client address rather than the proxy's, which rate limiting keys on.
+app.set('trust proxy', 1)
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -51,6 +57,9 @@ app.use(cookieParser())
 
 app.get('/health', (req, res) => res.json({ status: 'TechIT server running' }))
 
+// Baseline limit for all API traffic; auth and expensive routes add their own.
+app.use('/api', apiLimiter)
+
 app.use('/api/auth', authRoutes)
 app.use('/api/items', itemRoutes)
 app.use('/api/audit', auditRoutes)
@@ -59,6 +68,11 @@ app.use('/api/expenses', expenseRoutes)
 app.use('/api/invitations', invitationRoutes)
 app.use('/api/movements', movementRoutes)
 app.use('/api/purchase-orders', purchaseOrderRoutes)
+
+// Must come after every route: an unmatched path falls through to the 404,
+// and any thrown error to the handler.
+app.use(notFoundHandler)
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {

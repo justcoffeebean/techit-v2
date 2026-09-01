@@ -3,6 +3,7 @@ const router = express.Router()
 const supabase = require('../services/supabase')
 const { authMiddleware, adminMiddleware } = require('../middleware/auth')
 const { asyncHandler } = require('../utils/asyncHandler')
+const { expensiveLimiter } = require('../middleware/rateLimiter')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { logAction } = require('../services/audit')
 const { buildPurchaseOrderPdf } = require('../services/purchaseOrderPdf')
@@ -96,7 +97,7 @@ router.get('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
 }))
 
 // GET /api/purchase-orders/:id/pdf — download the PDF
-router.get('/:id/pdf', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+router.get('/:id/pdf', authMiddleware, adminMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
   const order = await loadOrder(orgId, req.params.id)
   if (!order) return res.status(404).json({ error: 'Purchase order not found' })
@@ -115,7 +116,7 @@ router.get('/:id/pdf', authMiddleware, adminMiddleware, asyncHandler(async (req,
 // POST /api/purchase-orders/generate — raise orders for everything currently
 // below threshold, batched by supplier. Items already on an open order are
 // skipped, so this is safe to run repeatedly.
-router.post('/generate', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+router.post('/generate', authMiddleware, adminMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
 
   const { data: items, error } = await supabase
@@ -157,7 +158,7 @@ router.post('/generate', authMiddleware, adminMiddleware, asyncHandler(async (re
 }))
 
 // POST /api/purchase-orders/:id/resend — retry the supplier email
-router.post('/:id/resend', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+router.post('/:id/resend', authMiddleware, adminMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id
   const order = await loadOrder(orgId, req.params.id)
   if (!order) return res.status(404).json({ error: 'Purchase order not found' })
@@ -192,16 +193,29 @@ router.post('/:id/receive', authMiddleware, adminMiddleware, asyncHandler(async 
     return res.status(400).json({ error: 'This order was cancelled' })
   }
 
+  // Fetch every affected item in one query rather than one per line: a large
+  // order would otherwise issue two round-trips per line.
+  const itemIds = order.lines.map(l => l.item_id).filter(Boolean)
+
+  const { data: items, error: itemsError } = itemIds.length
+    ? await supabase
+        .from('techit_items')
+        .select('*')
+        .eq('organization_id', orgId)
+        .in('id', itemIds)
+    : { data: [], error: null }
+
+  if (itemsError) throw itemsError
+
+  const itemById = new Map((items || []).map(i => [i.id, i]))
+
+  // Stock updates still go one at a time, since each row moves to a different
+  // value and PostgREST has no batch form for that, but the reads are now a
+  // single query and the movement writes run together.
+  const movements = []
+
   for (const line of order.lines) {
-    if (!line.item_id) continue
-
-    const { data: item } = await supabase
-      .from('techit_items')
-      .select('*')
-      .eq('id', line.item_id)
-      .eq('organization_id', orgId)
-      .single()
-
+    const item = itemById.get(line.item_id)
     if (!item) continue
 
     const before = item.quantity || 0
@@ -218,7 +232,7 @@ router.post('/:id/receive', authMiddleware, adminMiddleware, asyncHandler(async 
       continue
     }
 
-    await recordMovement({
+    movements.push(recordMovement({
       organizationId: orgId,
       item,
       movementType: 'received',
@@ -230,8 +244,10 @@ router.post('/:id/receive', authMiddleware, adminMiddleware, asyncHandler(async 
       referenceId: order.id,
       userId: req.user.id,
       username: req.user.username,
-    })
+    }))
   }
+
+  await Promise.all(movements)
 
   const { data: updated, error: statusError } = await supabase
     .from('techit_purchase_orders')

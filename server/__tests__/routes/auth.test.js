@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs')
+const { mockTable, mockTables } = require('../helpers/supabaseMock')
 const jwt = require('jsonwebtoken')
 
 process.env.JWT_SECRET = 'test-secret'
@@ -13,6 +14,18 @@ const mockSingle = jest.fn()
 jest.mock('../../services/supabase', () => ({
   from: jest.fn(),
 }))
+
+// Refresh-token issuance writes to a table these cases do not model, and
+// rotation is covered by the token service's own tests.
+jest.mock('../../services/tokens', () => {
+  const actual = jest.requireActual('../../services/tokens')
+  return {
+    ...actual,
+    issueRefreshToken: jest.fn().mockResolvedValue({
+      token: 'test-refresh-token', id: 'rt-1', expiresAt: new Date(),
+    }),
+  }
+})
 
 const supabase = require('../../services/supabase')
 
@@ -88,16 +101,10 @@ describe('POST /api/auth/login', () => {
 
   it('returns 401 when password is wrong', async () => {
     const hashed = await bcrypt.hash('correctpass', 10)
-    supabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        or: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [{ id: '1', username: 'admin', password: hashed, role: 'admin' }],
-            error: null,
-          }),
-        }),
-      }),
-    })
+    supabase.from.mockImplementation(mockTable({
+      data: [{ id: '1', username: 'admin', password: hashed, role: 'admin', organization_id: 'org-1' }],
+      error: null,
+    }))
 
     const res = await request('POST', '/api/auth/login', { username: 'admin', password: 'wrongpass' })
     expect(res.status).toBe(401)
@@ -106,21 +113,15 @@ describe('POST /api/auth/login', () => {
 
   it('returns a JWT token on successful login', async () => {
     const hashed = await bcrypt.hash('admin123', 10)
-    supabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        or: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [{ id: '1', username: 'admin', password: hashed, role: 'admin' }],
-            error: null,
-          }),
-        }),
-      }),
-    })
+    supabase.from.mockImplementation(mockTable({
+      data: [{ id: '1', username: 'admin', password: hashed, role: 'admin', organization_id: 'org-1' }],
+      error: null,
+    }))
 
     const res = await request('POST', '/api/auth/login', { username: 'admin', password: 'admin123' })
     expect(res.status).toBe(200)
     expect(res.body.token).toBeDefined()
-    expect(res.body.user).toEqual({ id: '1', username: 'admin', role: 'admin' })
+    expect(res.body.user).toEqual({ id: '1', username: 'admin', role: 'admin', organization_id: 'org-1' })
 
     const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET)
     expect(decoded.username).toBe('admin')
@@ -143,16 +144,13 @@ describe('POST /api/auth/register', () => {
   })
 
   it('returns 400 when username/email already exists', async () => {
-    supabase.from.mockReturnValue({
-      insert: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'duplicate key value violates unique constraint' },
-          }),
-        }),
-      }),
-    })
+    supabase.from.mockImplementation(mockTables({
+      techit_organizations: { data: { id: 'org-new' }, error: null },
+      techit_users: {
+        data: null,
+        error: { message: 'duplicate key value violates unique constraint' },
+      },
+    }))
 
     const res = await request('POST', '/api/auth/register', {
       username: 'admin', email: 'admin@techit.com', password: 'password123',

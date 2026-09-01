@@ -1,5 +1,14 @@
 const supabase = require('./supabase')
 
+/**
+ * Append an entry to the audit log.
+ *
+ * Never throws. Every caller awaits this *after* the operation it describes
+ * has already been committed, so rethrowing would turn a successful write
+ * into a 500 and tell the client an item was not created when it was. A
+ * failure here is logged and swallowed: losing an audit row is bad, but
+ * misreporting the outcome of the operation is worse.
+ */
 async function logAction(userId, username, action, itemId, itemName, changes, organizationId) {
   try {
     const { error } = await supabase.from('techit_audit_log').insert({
@@ -14,11 +23,9 @@ async function logAction(userId, username, action, itemId, itemName, changes, or
 
     if (error) {
       console.error('Audit log insert failed:', error.message)
-      throw new Error(`Audit log failed: ${error.message}`)
     }
   } catch (err) {
     console.error('Audit log error:', err.message)
-    throw err
   }
 }
 

@@ -6,6 +6,7 @@ const { createInvitation, findValidInvitation, markRedeemed } = require('../serv
 const { sendInvitationEmail } = require('../services/email')
 const { logAction } = require('../services/audit')
 const { asyncHandler } = require('../utils/asyncHandler')
+const { expensiveLimiter } = require('../middleware/rateLimiter')
 
 /**
  * Build the frontend accept URL. Prefers CLIENT_URL, falls back to the
@@ -106,7 +107,7 @@ router.get('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) =
 }))
 
 // POST /api/invitations — create an invitation and email it (admin only)
-router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, expensiveLimiter, asyncHandler(async (req, res) => {
   const { email, role } = req.body
   const orgId = req.user.organization_id
 

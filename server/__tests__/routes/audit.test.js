@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken')
+const { mockTable } = require('../helpers/supabaseMock')
 
 process.env.JWT_SECRET = 'test-secret'
 
@@ -17,8 +18,9 @@ const http = require('http')
 let server
 let baseUrl
 
-const adminToken = jwt.sign({ id: 'admin-1', username: 'admin', role: 'admin' }, process.env.JWT_SECRET)
-const userToken = jwt.sign({ id: 'user-1', username: 'viewer', role: 'user' }, process.env.JWT_SECRET)
+const ORG = 'org-1'
+const adminToken = jwt.sign({ id: 'admin-1', username: 'admin', role: 'admin', organization_id: ORG }, process.env.JWT_SECRET)
+const userToken = jwt.sign({ id: 'user-1', username: 'viewer', role: 'user', organization_id: ORG }, process.env.JWT_SECRET)
 
 beforeAll((done) => {
   server = app.listen(0, () => {
@@ -69,13 +71,7 @@ describe('GET /api/audit', () => {
       { id: '1', username: 'admin', action: 'ADD_ITEM', item_name: 'Widget', created_at: '2024-01-01' },
       { id: '2', username: 'admin', action: 'DELETE_ITEM', item_name: 'Gadget', created_at: '2024-01-02' },
     ]
-    mockFrom.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        order: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({ data: mockLogs, error: null }),
-        }),
-      }),
-    })
+    mockFrom.mockImplementation(mockTable({ data: mockLogs, error: null }))
 
     const res = await request('GET', '/api/audit', { token: adminToken })
     expect(res.status).toBe(200)
@@ -84,13 +80,7 @@ describe('GET /api/audit', () => {
   })
 
   it('returns 500 when supabase returns an error', async () => {
-    mockFrom.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        order: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
-        }),
-      }),
-    })
+    mockFrom.mockImplementation(mockTable({ data: null, error: { message: 'db error' } }))
 
     const res = await request('GET', '/api/audit', { token: adminToken })
     expect(res.status).toBe(500)
