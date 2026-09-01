@@ -14,6 +14,7 @@ a no-op.
 | 005 | `005_stock_movements.sql` | `techit_stock_movements` — a signed ledger of every quantity change |
 | 006 | `006_purchase_orders.sql` | `techit_purchase_orders`, its lines, and `techit_suppliers` |
 | 007 | `007_password_resets.sql` | `techit_password_resets` — hashed, single-use reset links |
+| 008 | `008_sku_unique_per_org.sql` | Scopes SKU uniqueness to the organization; it was global, so one tenant's SKUs blocked another's |
 
 ## Order matters
 

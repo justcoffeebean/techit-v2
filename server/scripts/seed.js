@@ -33,8 +33,25 @@ const FORCE = args.includes('--force')
 
 function log(msg) { console.log(`  ${msg}`) }
 
-function fail(msg) {
-  console.error(`\n  ${msg}\n`)
+// Set once the organization exists, so a later failure can remove the
+// partial rows rather than leaving them to block the next run.
+let createdOrgId = null
+
+async function fail(msg) {
+  console.error(`\n  ${msg}`)
+
+  if (createdOrgId) {
+    console.error('  Rolling back the partial demo organization...')
+    try {
+      await supabase.from('techit_organizations').delete().eq('id', createdOrgId)
+      console.error('  Rolled back. Fix the error above and run the seed again.')
+    } catch (err) {
+      console.error(`  Could not roll back: ${err.message}`)
+      console.error('  Run "node scripts/seed.js --reset" before retrying.')
+    }
+  }
+
+  console.error('')
   process.exit(1)
 }
 
@@ -120,14 +137,14 @@ async function reset() {
     .delete()
     .eq('id', org.id)
 
-  if (error) fail(`Could not remove the demo organization: ${error.message}`)
+  if (error) await fail(`Could not remove the demo organization: ${error.message}`)
   log(`Removed "${org.name}" and everything belonging to it.`)
 }
 
 async function seed() {
   const existing = await findOrg()
   if (existing) {
-    fail('A demo organization already exists. Run "node scripts/seed.js --reset" first.')
+    await fail('A demo organization already exists. Run "node scripts/seed.js --reset" first.')
   }
 
   // --- organization -------------------------------------------------------
@@ -136,7 +153,8 @@ async function seed() {
     .insert({ name: ORG_NAME, slug: ORG_SLUG, plan: 'business' })
     .select()
     .single()
-  if (orgErr) fail(`Could not create the organization: ${orgErr.message}`)
+  if (orgErr) await fail(`Could not create the organization: ${orgErr.message}`)
+  createdOrgId = org.id
   log(`Organization "${org.name}" created.`)
 
   const orgId = org.id
@@ -150,7 +168,7 @@ async function seed() {
       { username: 'demo.staff', email: 'staff@demo.co', password: hashed, role: 'user', organization_id: orgId },
     ])
     .select()
-  if (userErr) fail(`Could not create users: ${userErr.message}`)
+  if (userErr) await fail(`Could not create users: ${userErr.message}`)
 
   const admin = users.find(u => u.role === 'admin')
   log(`Users created: ${users.map(u => u.username).join(', ')}`)
@@ -185,7 +203,12 @@ async function seed() {
 
   const { data: items, error: itemErr } = await supabase
     .from('techit_items').insert(itemRows).select()
-  if (itemErr) fail(`Could not create items: ${itemErr.message}`)
+  if (itemErr) {
+    const hint = itemErr.message.includes('techit_items_sku_key')
+      ? '\n  This is the old global SKU constraint. Run migration 008_sku_unique_per_org.sql, which scopes SKU uniqueness to the organization.'
+      : ''
+    await fail(`Could not create items: ${itemErr.message}${hint}`)
+  }
   log(`Items created: ${items.length}`)
 
   // --- sales over the last 90 days ---------------------------------------
@@ -225,7 +248,7 @@ async function seed() {
   // Batched: a single statement with a thousand rows can exceed request limits.
   for (let i = 0; i < sales.length; i += 200) {
     const { error } = await supabase.from('techit_sales').insert(sales.slice(i, i + 200))
-    if (error) fail(`Could not create sales: ${error.message}`)
+    if (error) await fail(`Could not create sales: ${error.message}`)
   }
   log(`Sales recorded: ${sales.length} across 90 days`)
 
@@ -301,7 +324,7 @@ async function seed() {
 
   for (let i = 0; i < movements.length; i += 200) {
     const { error } = await supabase.from('techit_stock_movements').insert(movements.slice(i, i + 200))
-    if (error) fail(`Could not create stock movements: ${error.message}`)
+    if (error) await fail(`Could not create stock movements: ${error.message}`)
   }
   log(`Stock movements recorded: ${movements.length}`)
 
@@ -402,7 +425,7 @@ async function main() {
   // Seeding writes a lot of rows, so production needs an explicit
   // acknowledgement rather than a stray command doing it by accident.
   if (process.env.NODE_ENV === 'production' && !FORCE) {
-    fail('Refusing to seed with NODE_ENV=production. Re-run with --force if you are certain.')
+    await fail('Refusing to seed with NODE_ENV=production. Re-run with --force if you are certain.')
   }
 
   console.log('')
