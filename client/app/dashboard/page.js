@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import dynamic from 'next/dynamic'
-import { apiClient, getToken } from '../lib/api'
+import { apiClient, getToken, clearSession, setAuthFailureHandler } from '../lib/api'
 import { labelStyle } from '../lib/styles'
 import { useTheme } from '../lib/useTheme'
 import StatCards from '../components/StatCards'
@@ -107,6 +107,13 @@ export default function Dashboard() {
     }
   }, [])
 
+  // When refreshing fails the interceptor calls this, so an expired session
+  // lands on /login instead of leaving the dashboard in a broken state.
+  useEffect(() => {
+    setAuthFailureHandler(() => router.push('/login'))
+    return () => setAuthFailureHandler(null)
+  }, [router])
+
   useEffect(() => {
     const userData = Cookies.get('user')
     if (!userData || !getToken()) {
@@ -117,8 +124,7 @@ export default function Dashboard() {
       setUser(JSON.parse(userData))
     } catch (err) {
       console.error('Failed to parse user cookie:', err.message)
-      Cookies.remove('token')
-      Cookies.remove('user')
+      clearSession()
       router.push('/login')
       return
     }
@@ -188,9 +194,14 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = () => {
-    Cookies.remove('token')
-    Cookies.remove('user')
+  const handleLogout = async () => {
+    // Revoke the refresh token server-side so the session cannot be resumed.
+    try {
+      await apiClient.post('/api/auth/logout')
+    } catch (err) {
+      console.error('Logout request failed:', err.message)
+    }
+    clearSession()
     router.push('/login')
   }
 

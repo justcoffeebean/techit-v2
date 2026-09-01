@@ -1,6 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 
 const authRoutes = require('./routes/auth')
@@ -20,7 +21,7 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'))
     }
   },
-  credentials: false,
+  credentials: true,
 }))
 
 // Use helmet for security headers
@@ -44,6 +45,7 @@ app.use(helmet({
 }))
 
 app.use(express.json())
+app.use(cookieParser())
 
 app.get('/health', (req, res) => res.json({ status: 'TechIT server running' }))
 

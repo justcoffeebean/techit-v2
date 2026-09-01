@@ -1,11 +1,20 @@
 const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
 const supabase = require('../services/supabase')
 const { asyncHandler } = require('../utils/asyncHandler')
 const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter')
 const { findValidInvitation, markRedeemed } = require('../services/invitations')
+const { authMiddleware } = require('../middleware/auth')
+const {
+  REFRESH_COOKIE_NAME,
+  signAccessToken,
+  refreshCookieOptions,
+  issueRefreshToken,
+  findRefreshToken,
+  revokeToken,
+  revokeAllForUser,
+} = require('../services/tokens')
 
 /**
  * Slugify a name so it can be used as a unique organizations.slug.
@@ -79,17 +88,14 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' })
   }
 
-  // Generate JWT — includes organization_id so every request is scoped
-  const token = jwt.sign(
-    {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      organization_id: user.organization_id,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  )
+  // Short-lived access token for the client, long-lived refresh token in an
+  // httpOnly cookie the browser cannot read.
+  const token = signAccessToken(user)
+  const { token: refreshToken } = await issueRefreshToken(user.id, {
+    userAgent: req.headers['user-agent'],
+  })
+
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions())
 
   res.json({
     token,
@@ -100,6 +106,103 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
       organization_id: user.organization_id,
     }
   })
+}))
+
+// POST /api/auth/refresh — exchange the refresh cookie for a new access token.
+// The refresh token is rotated on every use: the presented token is revoked
+// and a fresh one issued, so a stolen token is only valid until the real
+// client next refreshes.
+router.post('/refresh', asyncHandler(async (req, res) => {
+  const presented = req.cookies?.[REFRESH_COOKIE_NAME]
+
+  if (!presented) {
+    return res.status(401).json({ error: 'No refresh token provided' })
+  }
+
+  const stored = await findRefreshToken(presented)
+
+  if (!stored) {
+    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions())
+    return res.status(401).json({ error: 'Invalid refresh token' })
+  }
+
+  // A revoked token being presented means it was rotated already and someone
+  // replayed the old value. Either it leaked or the cookie was stolen, so
+  // burn every session for this user rather than trusting the request.
+  if (stored.revoked_at) {
+    await revokeAllForUser(stored.user_id)
+    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions())
+    return res.status(401).json({ error: 'Refresh token reuse detected. Please sign in again.' })
+  }
+
+  if (new Date(stored.expires_at) < new Date()) {
+    await revokeToken(stored.id)
+    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions())
+    return res.status(401).json({ error: 'Refresh token expired' })
+  }
+
+  // Re-read the user so a role or organisation change takes effect on the
+  // next refresh rather than persisting for the life of the session.
+  const { data: user, error: userError } = await supabase
+    .from('techit_users')
+    .select('id, username, role, organization_id')
+    .eq('id', stored.user_id)
+    .single()
+
+  if (userError || !user) {
+    await revokeToken(stored.id)
+    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions())
+    return res.status(401).json({ error: 'User no longer exists' })
+  }
+
+  await revokeToken(stored.id)
+  const { token: nextRefresh } = await issueRefreshToken(user.id, {
+    replacesId: stored.id,
+    userAgent: req.headers['user-agent'],
+  })
+
+  res.cookie(REFRESH_COOKIE_NAME, nextRefresh, refreshCookieOptions())
+
+  res.json({
+    token: signAccessToken(user),
+    user,
+  })
+}))
+
+// POST /api/auth/logout — revoke the presented refresh token and clear the
+// cookie. Pass { all: true } to end every session for the user.
+router.post('/logout', asyncHandler(async (req, res) => {
+  const presented = req.cookies?.[REFRESH_COOKIE_NAME]
+
+  if (presented) {
+    const stored = await findRefreshToken(presented)
+    if (stored) {
+      if (req.body?.all) {
+        await revokeAllForUser(stored.user_id)
+      } else {
+        await revokeToken(stored.id)
+      }
+    }
+  }
+
+  res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions())
+  res.json({ ok: true })
+}))
+
+// GET /api/auth/me — resolve the caller from their access token. The client
+// uses this instead of trusting a user object it stored itself.
+router.get('/me', authMiddleware, asyncHandler(async (req, res) => {
+  const { data: user, error } = await supabase
+    .from('techit_users')
+    .select('id, username, email, role, organization_id')
+    .eq('id', req.user.id)
+    .single()
+
+  if (error || !user) {
+    return res.status(404).json({ error: 'User not found' })
+  }
+
+  res.json(user)
 }))
 
 // POST /api/auth/register

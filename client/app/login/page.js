@@ -2,8 +2,7 @@
 import { Suspense } from 'react'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Cookies from 'js-cookie'
-import { apiClient } from '../lib/api'
+import { apiClient, setSession } from '../lib/api'
 import { useTheme } from '../lib/useTheme'
 import { labelStyle, errorAlertStyle, successAlertStyle, pageWrapperStyle, cardStyle } from '../lib/styles'
 
@@ -21,9 +20,8 @@ function LoginContent() {
     setLoading(true)
     try {
       const res = await apiClient.post('/api/auth/login', form)
-      const cookieOpts = { expires: 7, secure: true, sameSite: 'Strict' }
-      Cookies.set('token', res.data.token, cookieOpts)
-      Cookies.set('user', JSON.stringify(res.data.user), cookieOpts)
+      // The refresh token arrives as an httpOnly cookie set by the server.
+      setSession(res.data.token, res.data.user)
       router.push('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed')
