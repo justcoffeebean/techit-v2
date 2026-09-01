@@ -8,6 +8,7 @@ const { Parser } = require('json2csv')
 const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
 const { parsePagination, buildPagination } = require('../utils/pagination')
+const { recordMovement, recordQuantityChange } = require('../services/movements')
 
 // GET /api/items — list items in the caller's org
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
@@ -152,6 +153,23 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
 
   await logAction(req.user.id, req.user.username, 'ADD_ITEM', data.id, data.name, { quantity, price }, orgId)
 
+  // Opening stock is the item's first movement, so the history starts at zero
+  // rather than appearing to materialise out of nowhere.
+  if (data.quantity > 0) {
+    await recordMovement({
+      organizationId: orgId,
+      item: data,
+      movementType: 'received',
+      quantityChange: data.quantity,
+      quantityBefore: 0,
+      quantityAfter: data.quantity,
+      reason: 'Opening stock',
+      referenceType: 'manual',
+      userId: req.user.id,
+      username: req.user.username,
+    })
+  }
+
   if (itemWithStatus.status !== 'In Stock') {
     try {
       await sendLowStockAlert([itemWithStatus])
@@ -208,6 +226,20 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
     before: { quantity: prev.quantity, price: prev.price },
     after: { quantity: data.quantity, price: data.price }
   }, orgId)
+
+  // An edit that moves the quantity is a stock movement. The caller may name
+  // the reason via movement_type; otherwise the direction of the change decides.
+  await recordQuantityChange({
+    organizationId: orgId,
+    item: data,
+    quantityBefore: prev.quantity,
+    quantityAfter: data.quantity,
+    movementType: req.body.movement_type || null,
+    reason: req.body.movement_reason || 'Quantity edited',
+    referenceType: 'manual',
+    userId: req.user.id,
+    username: req.user.username,
+  })
 
   if (prevStatus === 'In Stock' && itemWithStatus.status !== 'In Stock') {
     try {

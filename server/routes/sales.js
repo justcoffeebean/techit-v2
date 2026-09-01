@@ -9,6 +9,7 @@ const { computeStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { summarise, saleRevenue, saleProfit, withDerived } = require('../utils/salesMath')
+const { recordMovement } = require('../services/movements')
 
 const DEFAULT_RANGE_DAYS = 30
 const TOP_PRODUCT_COUNT = 10
@@ -281,6 +282,22 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
     .single()
 
   if (item) {
+    // The RPC already decremented the stock, so the level before the sale is
+    // the current level plus what was sold.
+    await recordMovement({
+      organizationId: orgId,
+      item,
+      movementType: 'sold',
+      quantityChange: -qty,
+      quantityBefore: item.quantity + qty,
+      quantityAfter: item.quantity,
+      reason: customer ? `Sold to ${customer}` : 'Sale',
+      referenceType: 'sale',
+      referenceId: sale.id,
+      userId: req.user.id,
+      username: req.user.username,
+    })
+
     const status = computeStatus(item.quantity, item.low_stock_threshold)
     if (status !== 'In Stock') {
       try {

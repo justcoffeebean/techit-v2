@@ -1,7 +1,7 @@
 'use client'
 import { useTheme } from '../lib/useTheme'
 
-export default function ItemsTable({ items, role, onEdit, onDelete }) {
+export default function ItemsTable({ items, role, onEdit, onDelete, onHistory }) {
   const { colors } = useTheme()
 
   if (items.length === 0) {
@@ -72,6 +72,11 @@ export default function ItemsTable({ items, role, onEdit, onDelete }) {
                           border: `1px solid ${colors.successBorder}`, color: colors.success,
                           borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
                         }}>Edit</button>
+                        <button onClick={() => onHistory(item)} style={{
+                          padding: '6px 12px', background: colors.inputBg,
+                          border: `1px solid ${colors.border}`, color: colors.muted,
+                          borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        }}>History</button>
                         <button onClick={() => onDelete(item)} style={{
                           padding: '6px 12px', background: colors.errorBg,
                           border: `1px solid ${colors.errorBorder}`, color: colors.error,

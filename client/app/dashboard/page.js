@@ -12,6 +12,7 @@ import ItemModal from '../components/ItemModal'
 import AuditLog from '../components/AuditLog'
 import Toast from '../components/Toast'
 import InvitationsModal from '../components/InvitationsModal'
+import MovementsModal from '../components/MovementsModal'
 
 const Charts = dynamic(() => import('../components/Charts'), { ssr: false })
 
@@ -59,6 +60,7 @@ export default function Dashboard() {
   const [editItem, setEditItem] = useState(null)
   const [showAudit, setShowAudit] = useState(false)
   const [showInvitations, setShowInvitations] = useState(false)
+  const [historyItem, setHistoryItem] = useState(null)
   const [auditLogs, setAuditLogs] = useState([])
   const [toasts, setToasts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -425,6 +427,7 @@ export default function Dashboard() {
           role={user?.role}
           onEdit={(item) => { setEditItem(item); setShowModal(true) }}
           onDelete={handleDelete}
+          onHistory={(item) => setHistoryItem(item)}
         />
       </div>
 
@@ -442,6 +445,13 @@ export default function Dashboard() {
 
       {showInvitations && (
         <InvitationsModal onClose={() => setShowInvitations(false)} />
+      )}
+
+      {historyItem && (
+        <MovementsModal
+          item={historyItem}
+          onClose={() => { setHistoryItem(null); fetchItems(); fetchMetrics() }}
+        />
       )}
     </div>
   )
