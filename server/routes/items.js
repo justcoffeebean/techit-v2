@@ -7,21 +7,14 @@ const { sendLowStockAlert } = require('../services/email')
 const { Parser } = require('json2csv')
 const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
-
-// Pagination bounds
-const DEFAULT_LIMIT = 20
-const MAX_LIMIT = 100
+const { parsePagination, buildPagination } = require('../utils/pagination')
 
 // GET /api/items — list items in the caller's org
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
-  const { keyword, category, status, page = 1, limit = DEFAULT_LIMIT } = req.query
+  const { keyword, category, status } = req.query
   const orgId = req.user.organization_id
 
-  // Parse pagination parameters
-  const pageNum = Math.max(1, parseInt(page) || 1)
-  const requestedLimit = parseInt(limit) || DEFAULT_LIMIT
-  const limitNum = Math.min(MAX_LIMIT, Math.max(1, requestedLimit))
-  const offset = (pageNum - 1) * limitNum
+  const { page, limit, offset } = parsePagination(req.query)
 
   let query = supabase
     .from('techit_items')
@@ -39,7 +32,7 @@ router.get('/', authMiddleware, asyncHandler(async (req, res) => {
 
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
-    .range(offset, offset + limitNum - 1)
+    .range(offset, offset + limit - 1)
 
   if (error) throw error
 
@@ -49,18 +42,9 @@ router.get('/', authMiddleware, asyncHandler(async (req, res) => {
     items = items.filter(i => i.status === status)
   }
 
-  const totalPages = Math.ceil((count || 0) / limitNum)
-
   res.json({
     items,
-    pagination: {
-      page: pageNum,
-      limit: limitNum,
-      total: count || 0,
-      totalPages,
-      hasNextPage: pageNum < totalPages,
-      hasPrevPage: pageNum > 1
-    }
+    pagination: buildPagination(page, limit, count)
   })
 }))
 
@@ -82,6 +66,7 @@ router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
     low_stock: items.filter(i => i.status === 'Low Stock').length,
     out_of_stock: items.filter(i => i.status === 'Out of Stock').length,
     total_value: items.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2),
+    total_cost_value: items.reduce((sum, i) => sum + (parseFloat(i.cost_price || 0) * i.quantity), 0).toFixed(2),
     categories: [...new Set(items.map(i => i.category))],
     by_category: {},
     by_status: {
@@ -108,7 +93,7 @@ router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
 
   const { data, error } = await supabase
     .from('techit_items')
-    .select('name,sku,category,quantity,price,location,supplier,created_at')
+    .select('name,sku,category,quantity,price,cost_price,location,supplier,low_stock_threshold,created_at')
     .eq('organization_id', orgId)
     .order('name')
 
@@ -120,7 +105,7 @@ router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
   }))
 
   const parser = new Parser({
-    fields: ['name', 'sku', 'category', 'quantity', 'price', 'status', 'location', 'supplier', 'created_at']
+    fields: ['name', 'sku', 'category', 'quantity', 'price', 'cost_price', 'status', 'location', 'supplier', 'created_at']
   })
   const csv = parser.parse(items)
 
@@ -131,7 +116,7 @@ router.get('/export', authMiddleware, asyncHandler(async (req, res) => {
 
 // POST /api/items — add item (admin only) in the caller's org
 router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
-  const { name, sku, category, quantity, price, location, supplier, low_stock_threshold } = req.body
+  const { name, sku, category, quantity, price, cost_price, location, supplier, low_stock_threshold } = req.body
   const orgId = req.user.organization_id
 
   if (!name || !sku || !category) {
@@ -145,6 +130,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
       name, sku, category,
       quantity: quantity || 0,
       price: price || 0,
+      cost_price: cost_price || 0,
       location: location || '',
       supplier: supplier || '',
       low_stock_threshold: low_stock_threshold || 10
@@ -180,7 +166,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
 // PUT /api/items/:id — update item (admin only) within the caller's org
 router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { id } = req.params
-  const { name, sku, category, quantity, price, location, supplier, low_stock_threshold } = req.body
+  const { name, sku, category, quantity, price, cost_price, location, supplier, low_stock_threshold } = req.body
   const orgId = req.user.organization_id
 
   const { data: prev, error: fetchError } = await supabase
@@ -200,6 +186,7 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
     .from('techit_items')
     .update({
       name, sku, category, quantity, price,
+      cost_price: cost_price || 0,
       location: location || '',
       supplier: supplier || '',
       low_stock_threshold: low_stock_threshold || 10,

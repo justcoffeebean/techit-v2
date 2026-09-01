@@ -6,6 +6,8 @@ require('dotenv').config()
 const authRoutes = require('./routes/auth')
 const itemRoutes = require('./routes/items')
 const auditRoutes = require('./routes/audit')
+const salesRoutes = require('./routes/sales')
+const expenseRoutes = require('./routes/expenses')
 
 const app = express()
 
@@ -47,6 +49,8 @@ app.get('/health', (req, res) => res.json({ status: 'TechIT server running' }))
 app.use('/api/auth', authRoutes)
 app.use('/api/items', itemRoutes)
 app.use('/api/audit', auditRoutes)
+app.use('/api/sales', salesRoutes)
+app.use('/api/expenses', expenseRoutes)
 
 const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {
