@@ -41,6 +41,17 @@ const registerLimiter = buildLimiter({
 })
 
 /**
+ * Password reset. Tight because each call sends mail and because the endpoint
+ * deliberately answers identically for unknown addresses, which would
+ * otherwise make it a cheap way to send mail to arbitrary recipients.
+ */
+const passwordResetLimiter = buildLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many password reset requests. Please try again later.',
+})
+
+/**
  * Baseline limit for authenticated API traffic. Generous enough that ordinary
  * dashboard use never reaches it, low enough to blunt a scripted scrape.
  */
@@ -61,4 +72,10 @@ const expensiveLimiter = buildLimiter({
   message: 'This action is rate limited. Please wait a moment before retrying.',
 })
 
-module.exports = { loginLimiter, registerLimiter, apiLimiter, expensiveLimiter }
+module.exports = {
+  loginLimiter,
+  registerLimiter,
+  passwordResetLimiter,
+  apiLimiter,
+  expensiveLimiter,
+}

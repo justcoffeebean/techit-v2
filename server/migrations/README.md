@@ -13,6 +13,7 @@ a no-op.
 | 004 | `004_refresh_tokens.sql` | `techit_refresh_tokens` — hashed refresh tokens with a rotation chain |
 | 005 | `005_stock_movements.sql` | `techit_stock_movements` — a signed ledger of every quantity change |
 | 006 | `006_purchase_orders.sql` | `techit_purchase_orders`, its lines, and `techit_suppliers` |
+| 007 | `007_password_resets.sql` | `techit_password_resets` — hashed, single-use reset links |
 
 ## Order matters
 

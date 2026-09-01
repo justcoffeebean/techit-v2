@@ -190,4 +190,63 @@ async function sendPurchaseOrderEmail({
   console.log(`Purchase order ${reference} emailed to ${to}`)
 }
 
-module.exports = { sendLowStockAlert, sendInvitationEmail, sendPurchaseOrderEmail }
+
+/**
+ * Email a password reset link.
+ *
+ * The copy names the expiry and says what to do if the request was not
+ * theirs, since an unexpected reset email is the first signal a user gets
+ * that someone is trying to reach their account.
+ */
+async function sendPasswordResetEmail({ to, username, resetUrl, expiresInMinutes }) {
+  const mailer = getTransporter()
+  if (!mailer) {
+    console.warn('Password reset email skipped: EMAIL_USER or EMAIL_PASS not configured')
+    throw new Error('Email transport not configured')
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; padding: 32px; border-radius: 12px; max-width: 560px;">
+      <h2 style="color: #4ade80; margin-bottom: 8px;">Reset your password</h2>
+      <p style="color: #888; margin-bottom: 24px; line-height: 1.6;">
+        Hello ${escapeHtml(username || 'there')}, we received a request to reset
+        the password on your TechIT account.
+      </p>
+
+      <a href="${escapeHtml(resetUrl)}" style="display: inline-block; background: #4ade80; color: #000; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 800; font-size: 15px;">
+        Choose a new password
+      </a>
+
+      <p style="color: #555; margin-top: 32px; font-size: 13px;">
+        Or paste this link into your browser:<br />
+        <a href="${escapeHtml(resetUrl)}" style="color: #4ade80; word-break: break-all;">${escapeHtml(resetUrl)}</a>
+      </p>
+
+      <p style="color: #555; margin-top: 24px; font-size: 12px; line-height: 1.6;">
+        This link expires in ${expiresInMinutes} minutes and can only be used once.
+        If you did not ask to reset your password you can ignore this email —
+        your password will not change until someone opens the link above.
+      </p>
+
+      <p style="color: #333; margin-top: 32px; font-size: 11px;">
+        Sent by TechIT Inventory Management System
+      </p>
+    </div>
+  `
+
+  await mailer.sendMail({
+    from: process.env.EMAIL_USER,
+    to,
+    subject: 'Reset your TechIT password',
+    html,
+  })
+
+  console.log(`Password reset email sent to ${to}`)
+}
+
+module.exports = {
+  sendLowStockAlert,
+  sendInvitationEmail,
+  sendPurchaseOrderEmail,
+  sendPasswordResetEmail,
+}

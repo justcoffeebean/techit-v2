@@ -3,8 +3,15 @@ const router = express.Router()
 const bcrypt = require('bcryptjs')
 const supabase = require('../services/supabase')
 const { asyncHandler } = require('../utils/asyncHandler')
-const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter')
+const { loginLimiter, registerLimiter, passwordResetLimiter } = require('../middleware/rateLimiter')
 const { findValidInvitation, markRedeemed } = require('../services/invitations')
+const {
+  RESET_TTL_MINUTES,
+  createResetToken,
+  findValidResetToken,
+  markUsed,
+} = require('../services/passwordResets')
+const { sendPasswordResetEmail } = require('../services/email')
 const { authMiddleware } = require('../middleware/auth')
 const {
   REFRESH_COOKIE_NAME,
@@ -203,6 +210,112 @@ router.get('/me', authMiddleware, asyncHandler(async (req, res) => {
   }
 
   res.json(user)
+}))
+
+
+/**
+ * Build the frontend reset URL. Mirrors the invitation link, preferring
+ * CLIENT_URL and falling back to the request origin for local development.
+ */
+function buildResetUrl(req, token) {
+  const base =
+    (process.env.CLIENT_URL && process.env.CLIENT_URL.replace(/\/$/, '')) ||
+    (req.headers.origin && req.headers.origin.replace(/\/$/, '')) ||
+    'https://techit-v2.vercel.app'
+
+  return `${base}/reset-password?token=${encodeURIComponent(token)}`
+}
+
+// POST /api/auth/forgot-password — send a reset link.
+//
+// Always answers the same way whether or not the address is registered:
+// a differing response would turn this into an oracle for discovering which
+// email addresses hold accounts.
+router.post('/forgot-password', passwordResetLimiter, asyncHandler(async (req, res) => {
+  const { email } = req.body
+
+  const genericResponse = {
+    message: 'If an account exists for that address, a reset link is on its way.',
+  }
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.json(genericResponse)
+  }
+
+  const { data: user } = await supabase
+    .from('techit_users')
+    .select('id, username, email')
+    .ilike('email', email.trim())
+    .maybeSingle()
+
+  // No account: answer identically and do no work.
+  if (!user) return res.json(genericResponse)
+
+  try {
+    const { token } = await createResetToken(user.id, { requestedIp: req.ip })
+    await sendPasswordResetEmail({
+      to: user.email,
+      username: user.username,
+      resetUrl: buildResetUrl(req, token),
+      expiresInMinutes: RESET_TTL_MINUTES,
+    })
+  } catch (err) {
+    // A mail failure is logged but not surfaced: reporting it would leak
+    // that the address exists.
+    console.error('Password reset dispatch failed:', err.message)
+  }
+
+  res.json(genericResponse)
+}))
+
+// GET /api/auth/reset-password/:token — check a link before showing the form,
+// so an expired link says so instead of failing after the user types a password.
+router.get('/reset-password/:token', asyncHandler(async (req, res) => {
+  const reset = await findValidResetToken(req.params.token)
+
+  if (!reset) {
+    return res.status(404).json({ valid: false, error: 'This reset link is invalid or has expired.' })
+  }
+
+  res.json({ valid: true })
+}))
+
+// POST /api/auth/reset-password — set the new password.
+router.post('/reset-password', passwordResetLimiter, asyncHandler(async (req, res) => {
+  const { token, password } = req.body
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token and new password are required' })
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' })
+  }
+
+  const reset = await findValidResetToken(token)
+  if (!reset) {
+    return res.status(400).json({ error: 'This reset link is invalid or has expired.' })
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10)
+
+  const { error: updateError } = await supabase
+    .from('techit_users')
+    .update({ password: hashedPassword })
+    .eq('id', reset.user_id)
+
+  if (updateError) throw updateError
+
+  await markUsed(reset.id)
+
+  // Whoever knew the old password may still hold a refresh token, so every
+  // session is revoked: resetting a password must end access everywhere.
+  try {
+    await revokeAllForUser(reset.user_id)
+  } catch (err) {
+    console.error('Failed to revoke sessions after password reset:', err.message)
+  }
+
+  res.json({ message: 'Password updated. Please sign in with your new password.' })
 }))
 
 // POST /api/auth/register

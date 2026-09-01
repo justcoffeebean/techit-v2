@@ -94,7 +94,16 @@ function LoginContent() {
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
 
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
+          <span
+            onClick={() => router.push('/forgot-password')}
+            style={{ color: colors.muted, cursor: 'pointer' }}
+          >
+            Forgot your password?
+          </span>
+        </p>
+
+        <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: colors.subtle }}>
           {"Don't have an account? "}
           <span
             onClick={() => router.push('/register')}
