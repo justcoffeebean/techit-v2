@@ -142,4 +142,52 @@ async function sendInvitationEmail({ to, organizationName, role, acceptUrl, invi
   }
 }
 
-module.exports = { sendLowStockAlert, sendInvitationEmail }
+
+/**
+ * Email a purchase order to a supplier with the PDF attached.
+ */
+async function sendPurchaseOrderEmail({
+  to, reference, supplierName, organizationName, lineCount, total, pdfBuffer,
+}) {
+  const mailer = getTransporter()
+  if (!mailer) {
+    console.warn('Purchase order email skipped: EMAIL_USER or EMAIL_PASS not configured')
+    throw new Error('Email transport not configured')
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; padding: 32px; border-radius: 12px; max-width: 560px;">
+      <h2 style="color: #4ade80; margin-bottom: 8px;">Purchase Order ${escapeHtml(reference)}</h2>
+      <p style="color: #888; margin-bottom: 24px; line-height: 1.6;">
+        Hello ${escapeHtml(supplierName)},<br /><br />
+        Please find attached purchase order <strong style="color: #fff;">${escapeHtml(reference)}</strong>
+        from <strong style="color: #fff;">${escapeHtml(organizationName)}</strong>,
+        covering ${lineCount} item${lineCount === 1 ? '' : 's'}
+        with a total of <strong style="color: #4ade80;">$${Number(total).toFixed(2)}</strong>.
+      </p>
+      <p style="color: #888; margin-bottom: 24px;">
+        The full breakdown is in the attached PDF. Please confirm receipt and
+        expected delivery at your earliest convenience.
+      </p>
+      <p style="color: #333; margin-top: 32px; font-size: 11px;">
+        Sent by TechIT Inventory Management System
+      </p>
+    </div>
+  `
+
+  await mailer.sendMail({
+    from: process.env.EMAIL_USER,
+    to,
+    subject: `Purchase Order ${reference} from ${organizationName}`,
+    html,
+    attachments: [{
+      filename: `${reference}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  })
+
+  console.log(`Purchase order ${reference} emailed to ${to}`)
+}
+
+module.exports = { sendLowStockAlert, sendInvitationEmail, sendPurchaseOrderEmail }

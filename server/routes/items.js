@@ -9,6 +9,7 @@ const { computeStatus, mapItemsWithStatus } = require('../utils/computeStatus')
 const { asyncHandler } = require('../utils/asyncHandler')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { recordMovement, recordQuantityChange } = require('../services/movements')
+const { triggerReorderIfLow } = require('../services/reorder')
 
 // GET /api/items — list items in the caller's org
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
@@ -176,6 +177,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
     } catch (emailErr) {
       console.error('Low stock alert failed after adding item:', emailErr.message)
     }
+    await triggerReorderIfLow(orgId, [data])
   }
 
   res.status(201).json(itemWithStatus)
@@ -241,12 +243,15 @@ router.put('/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res
     username: req.user.username,
   })
 
+  // Only on the crossing, not on every save while already low, so an admin
+  // editing a low item repeatedly does not raise repeated orders.
   if (prevStatus === 'In Stock' && itemWithStatus.status !== 'In Stock') {
     try {
       await sendLowStockAlert([itemWithStatus])
     } catch (emailErr) {
       console.error('Low stock alert failed after updating item:', emailErr.message)
     }
+    await triggerReorderIfLow(orgId, [data])
   }
 
   res.json(itemWithStatus)

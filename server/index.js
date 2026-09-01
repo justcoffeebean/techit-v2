@@ -11,6 +11,7 @@ const salesRoutes = require('./routes/sales')
 const expenseRoutes = require('./routes/expenses')
 const invitationRoutes = require('./routes/invitations')
 const movementRoutes = require('./routes/movements')
+const purchaseOrderRoutes = require('./routes/purchaseOrders')
 
 const app = express()
 
@@ -57,6 +58,7 @@ app.use('/api/sales', salesRoutes)
 app.use('/api/expenses', expenseRoutes)
 app.use('/api/invitations', invitationRoutes)
 app.use('/api/movements', movementRoutes)
+app.use('/api/purchase-orders', purchaseOrderRoutes)
 
 const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {

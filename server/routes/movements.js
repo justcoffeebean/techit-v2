@@ -8,6 +8,7 @@ const { computeStatus } = require('../utils/computeStatus')
 const { logAction } = require('../services/audit')
 const { sendLowStockAlert } = require('../services/email')
 const { MOVEMENT_TYPES, signedChange, recordMovement } = require('../services/movements')
+const { triggerReorderIfLow } = require('../services/reorder')
 
 // GET /api/movements — org-wide movement history, newest first
 router.get('/', authMiddleware, asyncHandler(async (req, res) => {
@@ -142,6 +143,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
     } catch (emailErr) {
       console.error('Low stock alert failed after stock movement:', emailErr.message)
     }
+    await triggerReorderIfLow(orgId, [updated])
   }
 
   res.status(201).json({

@@ -10,6 +10,7 @@ const { asyncHandler } = require('../utils/asyncHandler')
 const { parsePagination, buildPagination } = require('../utils/pagination')
 const { summarise, saleRevenue, saleProfit, withDerived } = require('../utils/salesMath')
 const { recordMovement } = require('../services/movements')
+const { triggerReorderIfLow } = require('../services/reorder')
 
 const DEFAULT_RANGE_DAYS = 30
 const TOP_PRODUCT_COUNT = 10
@@ -305,6 +306,7 @@ router.post('/', authMiddleware, adminMiddleware, asyncHandler(async (req, res) 
       } catch (emailErr) {
         console.error('Low stock alert failed after recording sale:', emailErr.message)
       }
+      await triggerReorderIfLow(orgId, [item])
     }
   }
 
