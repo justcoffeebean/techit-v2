@@ -265,6 +265,11 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {user?.role === 'admin' && (
             <>
+              <button onClick={() => router.push('/analytics')} style={{
+                padding: '7px 14px', background: colors.card,
+                border: `1px solid ${colors.border}`, color: colors.muted,
+                borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              }}>Analytics</button>
               <button onClick={() => router.push('/purchase-orders')} style={{
                 padding: '7px 14px', background: colors.card,
                 border: `1px solid ${colors.border}`, color: colors.muted,

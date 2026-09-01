@@ -136,3 +136,25 @@ export const cardStyle = {
   padding: 32,
   width: '100%',
 }
+
+/**
+ * Chart series colors, one fixed order per mode.
+ *
+ * These are not the UI accent colors: those sit at OKLCH L 0.71-0.84, too
+ * light for the dark chart surface, and their orange and red are only ~10 dE
+ * apart, which is below the threshold where full-colour vision can separate
+ * adjacent series. Both sets below pass the lightness band, chroma floor,
+ * CVD separation, normal-vision floor and contrast checks against their own
+ * surface.
+ *
+ * Assign in order and never cycle: series identity must not shift when a
+ * filter changes how many series are shown.
+ */
+export const chartColorsDark = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
+export const chartColorsLight = ['#16a34a', '#2563eb', '#d97706', '#7c3aed']
+
+/** Grid and axis ink, deliberately recessive against the plotted marks. */
+export const chartInk = {
+  dark: { grid: '#2a2a2a', axis: '#555' },
+  light: { grid: '#e2e8f0', axis: '#94a3b8' },
+}
