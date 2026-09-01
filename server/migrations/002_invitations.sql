@@ -4,6 +4,8 @@
 -- Idempotent: safe to re-run.
 -- ============================================================================
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS techit_invitations (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID        NOT NULL REFERENCES techit_organizations(id) ON DELETE CASCADE,
@@ -26,3 +28,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_invitations_org_email_pending
 
 CREATE INDEX IF NOT EXISTS idx_invitations_org_status ON techit_invitations(organization_id, status);
 CREATE INDEX IF NOT EXISTS idx_invitations_token      ON techit_invitations(token);
+
+COMMIT;

@@ -5,6 +5,10 @@
 -- Idempotent: safe to run multiple times.
 -- ============================================================================
 
+-- Run the whole migration atomically: if any step fails the database is
+-- left exactly as it was, rather than half-migrated.
+BEGIN;
+
 -- 1. organizations table
 CREATE TABLE IF NOT EXISTS techit_organizations (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,7 +53,21 @@ BEGIN
   UPDATE techit_audit_log  SET organization_id = default_org_id WHERE organization_id IS NULL;
 END $$;
 
--- 4. Enforce NOT NULL now that everything is backfilled
+-- 4. Default every table to the backfill org, then enforce NOT NULL.
+--    The default matters during deploy: an older server instance that has
+--    not yet picked up the new code inserts rows without an organization_id,
+--    and without a default those inserts would fail against the NOT NULL.
+DO $$
+DECLARE
+  default_org_id UUID;
+BEGIN
+  SELECT id INTO default_org_id FROM techit_organizations WHERE slug = 'default';
+
+  EXECUTE format('ALTER TABLE techit_users     ALTER COLUMN organization_id SET DEFAULT %L', default_org_id);
+  EXECUTE format('ALTER TABLE techit_items     ALTER COLUMN organization_id SET DEFAULT %L', default_org_id);
+  EXECUTE format('ALTER TABLE techit_audit_log ALTER COLUMN organization_id SET DEFAULT %L', default_org_id);
+END $$;
+
 ALTER TABLE techit_users     ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE techit_items     ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE techit_audit_log ALTER COLUMN organization_id SET NOT NULL;
@@ -59,3 +77,5 @@ CREATE INDEX IF NOT EXISTS idx_techit_users_organization_id     ON techit_users(
 CREATE INDEX IF NOT EXISTS idx_techit_items_organization_id     ON techit_items(organization_id);
 CREATE INDEX IF NOT EXISTS idx_techit_audit_log_organization_id ON techit_audit_log(organization_id);
 CREATE INDEX IF NOT EXISTS idx_techit_items_org_created         ON techit_items(organization_id, created_at DESC);
+
+COMMIT;
