@@ -1,19 +1,47 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { apiClient } from '../lib/api'
 import { useTheme } from '../lib/useTheme'
-import { labelStyle, errorAlertStyle, pageWrapperStyle, cardStyle } from '../lib/styles'
+import { labelStyle, errorAlertStyle, successAlertStyle, pageWrapperStyle, cardStyle } from '../lib/styles'
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inviteToken = searchParams.get('invite')
   const { colors, isDark } = useTheme()
+
   const [form, setForm] = useState({ username: '', email: '', password: '', confirm_password: '' })
+  const [inviteInfo, setInviteInfo] = useState(null)
+  const [inviteError, setInviteError] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Validate the invite token and pre-fill the email it was issued to.
+  useEffect(() => {
+    if (!inviteToken) return
+    let cancelled = false
+
+    apiClient.get('/api/invitations/validate', { params: { token: inviteToken } })
+      .then(res => {
+        if (cancelled) return
+        if (res.data?.valid) {
+          setInviteInfo(res.data)
+          setForm(prev => ({ ...prev, email: res.data.email }))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInviteError('This invitation link is invalid or has expired.')
+      })
+
+    return () => { cancelled = true }
+  }, [inviteToken])
 
   const handleSubmit = async () => {
     setError('')
+    setSuccess('')
+
     if (!form.username || !form.email || !form.password || !form.confirm_password) {
       return setError('Please fill in all fields')
     }
@@ -30,8 +58,10 @@ export default function RegisterPage() {
         username: form.username,
         email: form.email,
         password: form.password,
+        invite_token: inviteToken || undefined,
       })
-      router.push('/login?registered=true')
+      setSuccess('Account created! Redirecting to sign in...')
+      setTimeout(() => router.push('/login?registered=true'), 800)
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed')
     } finally {
@@ -51,13 +81,19 @@ export default function RegisterPage() {
       <div style={{ ...cardStyle, background: colors.card, border: `1px solid ${colors.border}`, padding: 40, maxWidth: 440 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>📦</p>
-          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: colors.text }}>Create Account</h1>
-          <p style={{ color: colors.subtle, fontSize: 14 }}>Join TechIT Inventory Management</p>
+          <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: colors.text }}>
+            {inviteInfo ? `Join ${inviteInfo.organization_name}` : 'Create Account'}
+          </h1>
+          <p style={{ color: colors.subtle, fontSize: 14 }}>
+            {inviteInfo
+              ? `You've been invited as ${inviteInfo.role === 'admin' ? 'an admin' : 'a user'}`
+              : 'Join TechIT Inventory Management'}
+          </p>
         </div>
 
-        {error && (
-          <div style={errorAlertStyle}>{error}</div>
-        )}
+        {inviteError && <div style={errorAlertStyle}>{inviteError}</div>}
+        {error && <div style={errorAlertStyle}>{error}</div>}
+        {success && <div style={successAlertStyle}>{success}</div>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -73,12 +109,18 @@ export default function RegisterPage() {
           <div>
             <label style={labelStyle}>Email Address</label>
             <input
-              style={inputSx}
+              style={{ ...inputSx, opacity: inviteInfo ? 0.7 : 1, cursor: inviteInfo ? 'not-allowed' : 'text' }}
               type="email"
               placeholder="Enter your email"
               value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              readOnly={Boolean(inviteInfo)}
             />
+            {inviteInfo && (
+              <p style={{ fontSize: 11, color: colors.subtle, marginTop: 4 }}>
+                Locked to the address this invitation was sent to
+              </p>
+            )}
           </div>
 
           <div>
@@ -116,24 +158,26 @@ export default function RegisterPage() {
             fontSize: 15, fontWeight: 700,
           }}
         >
-          {loading ? 'Creating account...' : 'Create Account'}
+          {loading ? 'Creating account...' : (inviteInfo ? 'Join team' : 'Create Account')}
         </button>
 
-        <div style={{
-          marginTop: 24, padding: 16,
-          background: colors.inputBg, border: `1px solid ${colors.border}`,
-          borderRadius: 8,
-        }}>
-          <p style={{ ...labelStyle, marginBottom: 10 }}>What you get</p>
-          {[
-            'Real-time inventory dashboard',
-            'Analytics and charts',
-            'Advanced search and filtering',
-            'CSV export',
-          ].map(f => (
-            <p key={f} style={{ fontSize: 13, color: colors.muted, padding: '4px 0' }}>{f}</p>
-          ))}
-        </div>
+        {!inviteInfo && (
+          <div style={{
+            marginTop: 24, padding: 16,
+            background: colors.inputBg, border: `1px solid ${colors.border}`,
+            borderRadius: 8,
+          }}>
+            <p style={{ ...labelStyle, marginBottom: 10 }}>What you get</p>
+            {[
+              'Real-time inventory dashboard',
+              'Analytics and charts',
+              'Advanced search and filtering',
+              'CSV export',
+            ].map(f => (
+              <p key={f} style={{ fontSize: 13, color: colors.muted, padding: '4px 0' }}>{f}</p>
+            ))}
+          </div>
+        )}
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: colors.subtle }}>
           Already have an account?{' '}
@@ -146,5 +190,21 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh', background: '#0f0f0f',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff',
+      }}>
+        Loading...
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   )
 }

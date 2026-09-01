@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken')
 const supabase = require('../services/supabase')
 const { asyncHandler } = require('../utils/asyncHandler')
 const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter')
+const { findValidInvitation, markRedeemed } = require('../services/invitations')
 
 /**
  * Slugify a name so it can be used as a unique organizations.slug.
@@ -103,7 +104,7 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
 
 // POST /api/auth/register
 router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body
+  const { username, email, password, invite_token } = req.body
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'All fields required' })
@@ -113,12 +114,34 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' })
   }
 
+  // Validate the invitation up front so we never create a user we would
+  // then have to reject or orphan.
+  let invite = null
+  if (invite_token) {
+    invite = await findValidInvitation(invite_token)
+    if (!invite) {
+      return res.status(400).json({ error: 'Invitation is invalid or expired' })
+    }
+    if (invite.email.toLowerCase() !== String(email).toLowerCase()) {
+      return res.status(400).json({ error: 'Email does not match the invitation' })
+    }
+  }
+
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10)
 
-  // Create a new organization for this user. The new user becomes its admin.
-  const orgName = `${username}'s Organization`
-  const organizationId = await createOrganization(orgName)
+  // An invited user joins the inviting org at the invited role. Everyone
+  // else gets a fresh organization and becomes its admin.
+  let organizationId
+  let role
+
+  if (invite) {
+    organizationId = invite.organization_id
+    role = invite.role
+  } else {
+    organizationId = await createOrganization(`${username}'s Organization`)
+    role = 'admin'
+  }
 
   // Insert user
   const { data, error } = await supabase
@@ -127,7 +150,7 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: 'admin',
+      role,
       organization_id: organizationId,
     })
     .select()
@@ -140,7 +163,17 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
     throw error
   }
 
-  res.status(201).json({ message: 'Account created successfully' })
+  // The account already carries the invited org and role, so the invitation
+  // is consumed here rather than in a separate post-login step.
+  if (invite) {
+    await markRedeemed(invite.id)
+  }
+
+  res.status(201).json({
+    message: invite
+      ? 'Account created. Please sign in to access your team.'
+      : 'Account created successfully',
+  })
 }))
 
 module.exports = router

@@ -8,6 +8,7 @@ const itemRoutes = require('./routes/items')
 const auditRoutes = require('./routes/audit')
 const salesRoutes = require('./routes/sales')
 const expenseRoutes = require('./routes/expenses')
+const invitationRoutes = require('./routes/invitations')
 
 const app = express()
 
@@ -51,6 +52,7 @@ app.use('/api/items', itemRoutes)
 app.use('/api/audit', auditRoutes)
 app.use('/api/sales', salesRoutes)
 app.use('/api/expenses', expenseRoutes)
+app.use('/api/invitations', invitationRoutes)
 
 const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {

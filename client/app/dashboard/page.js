@@ -11,6 +11,7 @@ import ItemsTable from '../components/ItemsTable'
 import ItemModal from '../components/ItemModal'
 import AuditLog from '../components/AuditLog'
 import Toast from '../components/Toast'
+import InvitationsModal from '../components/InvitationsModal'
 
 const Charts = dynamic(() => import('../components/Charts'), { ssr: false })
 
@@ -57,6 +58,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [showAudit, setShowAudit] = useState(false)
+  const [showInvitations, setShowInvitations] = useState(false)
   const [auditLogs, setAuditLogs] = useState([])
   const [toasts, setToasts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -225,6 +227,11 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {user?.role === 'admin' && (
             <>
+              <button onClick={() => setShowInvitations(true)} style={{
+                padding: '7px 14px', background: colors.card,
+                border: `1px solid ${colors.border}`, color: colors.muted,
+                borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              }}>Team</button>
               <button onClick={handleOpenAudit} style={{
                 padding: '7px 14px', background: colors.card,
                 border: `1px solid ${colors.border}`, color: colors.muted,
@@ -420,6 +427,10 @@ export default function Dashboard() {
 
       {showAudit && (
         <AuditLog logs={auditLogs} onClose={() => setShowAudit(false)} />
+      )}
+
+      {showInvitations && (
+        <InvitationsModal onClose={() => setShowInvitations(false)} />
       )}
     </div>
   )
