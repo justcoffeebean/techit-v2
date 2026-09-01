@@ -13,6 +13,7 @@ import AuditLog from '../components/AuditLog'
 import Toast from '../components/Toast'
 import InvitationsModal from '../components/InvitationsModal'
 import MovementsModal from '../components/MovementsModal'
+import BarcodeScanner from '../components/BarcodeScanner'
 
 const Charts = dynamic(() => import('../components/Charts'), { ssr: false })
 
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [showAudit, setShowAudit] = useState(false)
   const [showInvitations, setShowInvitations] = useState(false)
   const [historyItem, setHistoryItem] = useState(null)
+  const [showScanner, setShowScanner] = useState(false)
   const [auditLogs, setAuditLogs] = useState([])
   const [toasts, setToasts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -196,6 +198,29 @@ export default function Dashboard() {
     }
   }
 
+  // A scan resolves to an existing item or to nothing. Found opens the edit
+  // form on that item; not found opens the add form with the SKU pre-filled,
+  // so scanning an unknown barcode starts creating it.
+  const handleScan = async (sku) => {
+    setShowScanner(false)
+    if (!sku) return
+
+    try {
+      const res = await apiClient.get(`/api/items/sku/${encodeURIComponent(sku)}`)
+      setEditItem(res.data.item)
+      setShowModal(true)
+      addToast(`Found ${res.data.item.name}`)
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setEditItem({ sku })
+        setShowModal(true)
+        addToast(`No item with SKU ${sku} — add it now`, 'info')
+      } else {
+        addToast('Barcode lookup failed', 'error')
+      }
+    }
+  }
+
   const handleLogout = async () => {
     // Revoke the refresh token server-side so the session cannot be resumed.
     try {
@@ -269,6 +294,12 @@ export default function Dashboard() {
           )}
 
           {/* Theme toggle */}
+          <button onClick={() => setShowScanner(true)} style={{
+            padding: '7px 14px', background: colors.card,
+            border: `1px solid ${colors.border}`, color: colors.muted,
+            borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+          }}>Scan</button>
+
           <button
             onClick={toggleTheme}
             aria-label="Toggle color theme"
@@ -450,6 +481,13 @@ export default function Dashboard() {
 
       {showInvitations && (
         <InvitationsModal onClose={() => setShowInvitations(false)} />
+      )}
+
+      {showScanner && (
+        <BarcodeScanner
+          onDetected={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
       )}
 
       {historyItem && (

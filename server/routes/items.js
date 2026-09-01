@@ -50,6 +50,35 @@ router.get('/', authMiddleware, asyncHandler(async (req, res) => {
   })
 }))
 
+// GET /api/items/sku/:sku — resolve a scanned barcode to an item.
+// Declared before any '/:id' route so a SKU is never read as an id.
+router.get('/sku/:sku', authMiddleware, asyncHandler(async (req, res) => {
+  const orgId = req.user.organization_id
+  const sku = String(req.params.sku || '').trim()
+
+  if (!sku) return res.status(400).json({ error: 'A SKU is required' })
+
+  const { data, error } = await supabase
+    .from('techit_items')
+    .select('*')
+    .eq('organization_id', orgId)
+    .ilike('sku', sku)
+    .maybeSingle()
+
+  if (error) throw error
+
+  if (!data) {
+    // Not an error condition: the caller opens the add form with this SKU
+    // pre-filled, so a miss is a normal outcome of scanning something new.
+    return res.status(404).json({ found: false, sku })
+  }
+
+  res.json({
+    found: true,
+    item: { ...data, status: computeStatus(data.quantity, data.low_stock_threshold) },
+  })
+}))
+
 // GET /api/items/metrics — dashboard stats for the caller's org only
 router.get('/metrics', authMiddleware, asyncHandler(async (req, res) => {
   const orgId = req.user.organization_id

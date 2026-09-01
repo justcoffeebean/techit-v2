@@ -9,8 +9,11 @@ export default function ItemModal({ item, onSave, onClose }) {
     price: 0, location: '', supplier: '', low_stock_threshold: 10,
   })
 
+  // Merge rather than replace: a scan of an unknown barcode passes only
+  // { sku }, and assigning that directly would leave the other fields
+  // undefined and turn their inputs uncontrolled.
   useEffect(() => {
-    if (item) setForm(item)
+    if (item) setForm(prev => ({ ...prev, ...item }))
   }, [item])
 
   const handleChange = (e) => {
